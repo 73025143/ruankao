@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>CPU 取指令执行动画 · PC vs IR 精讲</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d1117; color:#e6edf3;
+    font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    padding:28px 36px; max-width:1180px; margin:0 auto;
+  }
+  h1 { font-size:22px; margin-bottom:6px; }
+  h1 .hl { color:#3fb950; }
+  .sub { color:#8b949e; font-size:13px; margin-bottom:18px; }
+
+  /* 前置知识 */
+  .pre { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:14px 18px; margin-bottom:20px; }
+  .pre h2 { font-size:14px; color:#39c5cf; margin-bottom:8px; }
+  .pre ol { margin-left:20px; font-size:13.5px; line-height:1.9; color:#c9d1d9; }
+
+  /* 舞台 */
+  .stage { position:relative; display:grid; grid-template-columns: 1fr 120px 1fr; gap:0; align-items:stretch;
+           background:#0f151d; border:1px solid #30363d; border-radius:12px; padding:22px 20px; min-height:430px; }
+  .panel-title { font-size:13px; color:#8b949e; letter-spacing:2px; margin-bottom:12px; text-align:center; }
+
+  .cpu-panel { display:flex; flex-direction:column; gap:10px; }
+  .reg-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .reg { background:#161b22; border:2px solid #30363d; border-radius:10px; padding:10px 12px; min-height:70px;
+         transition: box-shadow .3s, border-color .3s, transform .2s; }
+  .reg .name { font-size:12px; color:#8b949e; margin-bottom:4px; letter-spacing:1px; }
+  .reg .name b { font-size:14px; }
+  .reg .val { font-family:Menlo,Consolas,monospace; font-size:15px; font-weight:bold; min-height:20px; word-break:break-all; }
+  .reg .duty { font-size:11px; color:#6e7681; margin-top:3px; }
+
+  /* 寄存器内部小格子 */
+  .cells { display:flex; gap:5px; margin:6px 0 15px; }
+  .cell { flex:1; min-height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+          font-family:Menlo,Consolas,monospace; font-size:13px; font-weight:bold; padding:2px 6px;
+          position:relative; transition:all .3s; }
+  .cell .tag { position:absolute; bottom:-13px; left:0; right:0; text-align:center;
+               font-size:9px; color:#6e7681; font-weight:normal; letter-spacing:1px; }
+  .cell.addr { border:1.5px solid #3fb95066; color:#7ee787; }   /* 地址格（绿） */
+  .cell.op   { border:1.5px solid #d2992266; color:#ffa657; flex:1.15; } /* 操作码格（橙） */
+  .cell.num  { border:1.5px solid #58a6ff66; color:#79c0ff; }   /* 操作数格（蓝） */
+  .cell.dat  { border:1.5px solid #8b949e66; color:#e6edf3; }   /* 数据格（白） */
+  .cell.empty { border:1.5px dashed #30363d; color:#30363d; }   /* 空格子（虚线） */
+  .reg.active .cell { filter:brightness(1.25); }
+
+  #reg-pc  { border-color:#2ea04366; } #reg-pc  .name b { color:#3fb950; }
+  #reg-ir  { border-color:#d2992266; } #reg-ir  .name b { color:#d29922; }
+  #reg-mar .name b, #reg-mdr .name b, #reg-acc .name b { color:#58a6ff; }
+
+  .reg.active { border-color:#39c5cf; box-shadow:0 0 18px #39c5cf55; }
+  #reg-pc.active { border-color:#3fb950; box-shadow:0 0 20px #3fb95066; }
+  #reg-ir.active { border-color:#d29922; box-shadow:0 0 20px #d2992266; }
+  .reg.bump { animation: bump .9s ease; }
+  @keyframes bump { 0%{transform:scale(1)} 40%{transform:scale(1.09); box-shadow:0 0 26px #3fb950aa;} 100%{transform:scale(1)} }
+
+  .alu { background:#161b22; border:2px dashed #30363d; border-radius:10px; padding:10px 12px; text-align:center; color:#6e7681; font-size:12px; min-height:70px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px;}
+  .alu b { color:#bc8cff; font-size:14px; }
+
+  /* 总线通道 */
+  .bus-lane { position:relative; }
+  .bus-lane::before { content:"总线（地址/数据在 CPU 与内存间流动）"; position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%) ; writing-mode:vertical-lr; letter-spacing:6px; font-size:11px; color:#30363d; }
+
+  /* 内存表 */
+  .mem-panel { display:flex; flex-direction:column; }
+  .mem { display:flex; flex-direction:column; gap:6px; }
+  .mem-row { display:grid; grid-template-columns:56px 1fr; gap:10px; font-family:Menlo,Consolas,monospace; font-size:14px;
+             background:#161b22; border:1px solid #21262d; border-radius:8px; padding:7px 12px; transition:all .3s; }
+  .mem-row .addr { color:#8b949e; }
+  .mem-row .content { font-weight:bold; display:flex; gap:4px; align-items:center; }
+  .mem-row .content .cell { min-height:22px; font-size:12px; flex:0 0 auto; padding:1px 8px; }
+  .mem-row.data .content { color:#79c0ff; }
+  .mem-row.code .content { color:#ffa657; }
+  .mem-divider { font-size:11px; color:#6e7681; text-align:center; margin:4px 0; letter-spacing:3px; }
+  .mem-row.reading { border-color:#39c5cf; box-shadow:0 0 14px #39c5cf44; }
+  .mem-row.result { border-color:#3fb950; box-shadow:0 0 16px #3fb95066; }
+  .mem-row { position:relative; }
+  .mem-row.fetched { opacity:.42; }
+  .mem-row.fetched::after { content:'✓'; position:absolute; right:8px; top:2px; font-size:12px; color:#3fb950; }
+  .mem-row.pc-here { border-color:#3fb950; border-width:2px; }
+  .mem-row.pc-here::before { content:'👉 PC 指向这'; position:absolute; left:8px; top:-9px; font-size:10px;
+    color:#3fb950; background:#0f151d; padding:0 5px; border-radius:4px; border:1px solid #3fb95055; z-index:2; }
+
+  /* 飞行芯片 */
+  #chip { position:absolute; z-index:99; background:#39c5cf; color:#001018; font-family:Menlo,Consolas,monospace;
+    font-size:13px; font-weight:bold; padding:4px 10px; border-radius:20px; opacity:0; pointer-events:none;
+    transform:translate(-50%,-50%); white-space:nowrap; box-shadow:0 0 14px #39c5cfaa; }
+  #chip.show { opacity:1; transition: opacity .25s; }
+
+  /* 控制区 */
+  .controls { margin-top:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:8px; padding:8px 18px;
+    font-size:14px; cursor:pointer; transition:all .2s; }
+  button:hover { background:#30363d; border-color:#8b949e; }
+  button.primary { background:#238636; border-color:#2ea043; font-weight:bold; }
+  button.primary:hover { background:#2ea043; }
+  .step-ind { font-family:Menlo,monospace; font-size:13px; color:#8b949e; }
+
+  .phase-tag { display:inline-block; font-size:12px; padding:2px 10px; border-radius:12px; margin-left:8px; vertical-align:middle;}
+  .phase-FETCH { background:#39c5cf22; color:#39c5cf; border:1px solid #39c5cf55; }
+  .phase-EXEC  { background:#bc8cff22; color:#bc8cff; border:1px solid #bc8cff55; }
+  .phase-INIT, .phase-END { background:#3fb95022; color:#3fb950; border:1px solid #3fb95055; }
+
+  .desc-box { margin-top:12px; background:#161b22; border:1px solid #30363d; border-left:4px solid #39c5cf;
+    border-radius:8px; padding:12px 16px; min-height:74px; }
+  .desc-box .t { font-weight:bold; font-size:15px; margin-bottom:5px; }
+  .desc-box .d { font-size:13.5px; line-height:1.7; color:#c9d1d9; }
+
+  /* 知识卡片区 */
+  .know { margin-top:26px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
+  .card h3 { font-size:15px; margin-bottom:10px; }
+  .card.pc h3 { color:#3fb950; } .card.ir h3 { color:#d29922; } .card.ans h3 { color:#ff7b72; }
+  .card ul { margin-left:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .card b { color:#e6edf3; }
+
+  table.kt { margin-top:22px; width:100%; border-collapse:collapse; font-size:13px; }
+  table.kt th { background:#161b22; color:#8b949e; text-align:left; padding:8px 12px; border:1px solid #30363d; font-size:12.5px;}
+  table.kt td { padding:8px 12px; border:1px solid #30363d; color:#c9d1d9; line-height:1.6; }
+  table.kt td:first-child { font-weight:bold; color:#79c0ff; white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<h1>CPU 怎么执行程序：<span class="hl">PC</span> 与 <span style="color:#d29922">IR</span> 到底各干什么</h1>
+<div class="sub">软考 · 计算机组成原理 ｜ 2024上·综合知识 #1 ｜ 点「下一步」一步步看，重点看第 5 步和第 26 步</div>
+
+<div class="pre">
+  <h2>⏱ 30 秒前置知识（忘光了也能看懂）</h2>
+  <ol>
+    <li><b>内存</b> = 一长排带编号（地址）的小格子，程序编译后的<b>指令</b>和数据都躺在格子里</li>
+    <li>CPU 不是一口气运行程序的，而是死循环：<b>取指令 → 译码 → 执行 → 再取下一条</b></li>
+    <li><b>寄存器</b> = CPU 肚子里几个小格子，分工固定：PC 管导航（下一条去哪读）、IR 管当前指令、MAR 管报地址、MDR 管转运数据、ACC 是算术工作台</li>
+    <li>每条<b>指令 = 操作码（干什么）+ 操作数（对谁干）</b>——页面上寄存器和内存格子里的小框，就按这个拆分着色：绿=地址、橙=操作码、蓝=操作数、白=数据</li>
+    <li>内存列的标记：<b style="color:#3fb950">👉 PC 指向这</b> = 书签当前夹的格子（PC 只有一个格子，值是被覆盖更新的）；<b style="color:#3fb950">✓</b> = 已被取走执行的指令——点"下一步"能看到书签沿内存一格格下移</li>
+  </ol>
+</div>
+
+<div class="stage" id="stage">
+  <div class="cpu-panel">
+    <div class="panel-title">CPU 内部</div>
+    <div class="reg-grid">
+      <div class="reg" id="reg-pc"><div class="name"><b>PC</b> 程序计数器</div><div class="cells" id="cells-pc"></div><div class="duty">书签：下一条指令的地址</div></div>
+      <div class="reg" id="reg-ir"><div class="name"><b>IR</b> 指令寄存器</div><div class="cells" id="cells-ir"></div><div class="duty">当前正在执行的指令本体</div></div>
+      <div class="reg" id="reg-mar"><div class="name"><b>MAR</b> 地址寄存器</div><div class="cells" id="cells-mar"></div><div class="duty">对内存喊话：读哪个地址</div></div>
+      <div class="reg" id="reg-mdr"><div class="name"><b>MDR</b> 数据寄存器</div><div class="cells" id="cells-mdr"></div><div class="duty">数据/指令进出的转运站</div></div>
+      <div class="reg" id="reg-acc"><div class="name"><b>ACC</b> 累加器</div><div class="cells" id="cells-acc"></div><div class="duty">ALU 算数的工作台</div></div>
+      <div class="alu"><b>ALU + 控制单元</b>算数 / 译码 / 发号施令</div>
+    </div>
+  </div>
+  <div class="bus-lane"></div>
+  <div class="mem-panel">
+    <div class="panel-title">内存（每行一个格子）</div>
+    <div class="mem" id="mem"></div>
+  </div>
+  <div id="chip"></div>
+</div>
+
+<div class="controls">
+  <button class="primary" onclick="stepPrev()">◀ 上一步</button>
+  <button class="primary" onclick="stepNext()">下一步 ▶</button>
+  <button onclick="togglePlay()" id="playBtn">▶ 自动播放</button>
+  <button onclick="reset()">↺ 重置</button>
+  <span class="step-ind" id="stepInd"></span>
+</div>
+<div class="desc-box" id="descBox">
+  <div class="t" id="descT"></div>
+  <div class="d" id="descD"></div>
+</div>
+
+<div class="know">
+  <div class="card pc">
+    <h3>PC 程序计数器 = 书签</h3>
+    <ul>
+      <li>存的是<b>下一条指令的地址</b>（不是指令！）</li>
+      <li>顺序执行时<b>自动 +1</b></li>
+      <li>遇转移指令（JMP/JE/CALL/RET）被<b>直接改写</b>——这就是"跟踪后继指令地址"</li>
+      <li>对应 x86 的 <b>rip/eip</b>、ARM 的 r15</li>
+      <li>断点的本质：PC == 断点地址时停下</li>
+    </ul>
+  </div>
+  <div class="card ir">
+    <h3>IR 指令寄存器 = 当前这页</h3>
+    <ul>
+      <li>存的是<b>当前正在执行的指令本体</b>（操作码+操作数）</li>
+      <li>来源是 <b>MDR</b>，不是 PC！（常考坑）</li>
+      <li>PC 送出去的是地址，给 MAR</li>
+      <li>一句话：PC 管"下一步去哪"，IR 管"现在干啥"</li>
+    </ul>
+  </div>
+  <div class="card ans">
+    <h3>本题复盘</h3>
+    <ul>
+      <li>题干"跟踪<b>后继指令</b>的<b>地址</b>"→ 三个关键词全指向 PC</li>
+      <li>你选的 IR：装的是"当前指令<b>本体</b>"</li>
+      <li>类比：PC=书签（夹在下一页），IR=正在读的这行字</li>
+      <li>指令周期：取指→间址→执行→中断</li>
+    </ul>
+  </div>
+</div>
+
+<table class="kt">
+  <tr><th>寄存器</th><th>职责</th><th>考试常见问法</th></tr>
+  <tr><td>PC</td><td>下一条指令的地址</td><td>"跟踪后继指令地址"；顺序执行自动+1；转移指令修改它</td></tr>
+  <tr><td>IR</td><td>当前执行的指令本体</td><td>"存放当前正在执行的指令"</td></tr>
+  <tr><td>MAR/AR</td><td>CPU 欲访问的内存地址</td><td>"对内存操作的地址存放于"</td></tr>
+  <tr><td>MDR/DR</td><td>与内存交换的数据</td><td>"读出/写入的数据暂存于"</td></tr>
+  <tr><td>ACC</td><td>ALU 工作台（累加）</td><td>运算数据/结果的存放处</td></tr>
+  <tr><td>PSW</td><td>标志位：零/进位/溢出/符号</td><td>条件转移指令（JE 等）的判断依据</td></tr>
+</table>
+
+<script>
+// ============ 数据：小程序 ============
+// 100: LOAD 200  → 把内存200的数装进ACC
+// 101: ADD 201   → ACC 加上内存201的数
+// 102: STORE 202 → 结果写回内存202
+// 103: JMP 104   → 跳转（改写PC的高光时刻）
+// 104: HALT      → 停机
+const mem0 = {100:'LOAD 200',101:'ADD 201',102:'STORE 202',103:'JMP 104',104:'HALT',200:'3',201:'5',202:'0'};
+let R = {pc:'100', mar:'', mdr:'', ir:'', acc:''};
+let M = {...mem0};
+let EXE = new Set();   // 已被取走执行的指令地址（内存侧打 ✓）
+const steps = [];
+function push(title, phase, desc, opt={}) {
+  steps.push({title, phase, desc,
+    regs:{...R}, mem:{...M}, executed:new Set(EXE),
+    hl: opt.hl || [], memHl: (opt.memHl ?? null),
+    flow: opt.flow || null, pcBump: opt.pcBump || false, done: opt.done || false});
+}
+
+// ---- 指令1：LOAD 200 ----
+push('准备 · 程序装入内存','INIT','内存就是一排带编号（地址）的格子。程序编译后，指令一条条躺在格子里（橙色区），数据躺在蓝色区。CPU 肚子里有个"书签" PC，现在指着 100：意思是"下一条指令去 100 号格子取"。',{hl:['reg-pc']});
+R.mar='100'; push('取指① PC→MAR','FETCH','取指开始！CPU 把书签上的编号递给 MAR（地址寄存器），相当于对内存喊话："给我读 100 号格子"。MAR 专门负责报地址。',{flow:{from:'cell-pc',to:'cell-mar',label:'100'},hl:['reg-pc','reg-mar']});
+R.mdr='LOAD 200'; push('取指② 内存→MDR','FETCH','内存收到地址，把 100 号格子的内容——指令 LOAD 200 本体——放进 MDR（转运站）。注意路上跑的是指令本身，不是地址！',{flow:{from:'mem-100',to:'cell-mdr-0',label:'LOAD 200'},memHl:100,hl:['reg-mar','reg-mdr']});
+EXE.add(100); R.ir='LOAD 200'; push('取指③ MDR→IR','FETCH','指令从 MDR 装进 IR，自动分成两个小格：操作码 LOAD（干什么）+ 操作数 200（对谁干）——这就是"指令 = 操作码 + 操作数"。从现在起到执行完，IR 装的就是"当前正在执行的指令"。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'LOAD 200'},hl:['reg-mdr','reg-ir']});
+R.pc='101'; push('取指④ PC 自动+1','FETCH','与此同时 PC 自动 +1 → 101。敲黑板看这一幕：IR = 当前指令(LOAD 200)，PC = 下一条的地址(101)。一个管"现在"，一个管"下一步"——这就是本题考点！',{pcBump:true,hl:['reg-pc','reg-ir']});
+R.mar='200'; push('执行 LOAD ①','EXEC','译码器认出操作码是 LOAD（取数）：注意飞过去的是 IR 里**操作数格**的 200（不是整条指令！）——操作数是内存地址，送 MAR："去 200 号格子拿数据"。',{flow:{from:'cell-ir-1',to:'cell-mar',label:'200'},hl:['reg-ir','reg-mar']});
+R.mdr='3'; push('执行 LOAD ②','EXEC','内存 200 号格子里存着数据 3，送入 MDR。',{flow:{from:'mem-200',to:'cell-mdr-0',label:'3'},memHl:200,hl:['reg-mar','reg-mdr']});
+R.acc='3'; push('执行 LOAD ③ 完成','EXEC','3 装进 ACC（累加器）。LOAD 200 执行完毕：ACC = 3。',{flow:{from:'cell-mdr-0',to:'cell-acc',label:'3'},hl:['reg-mdr','reg-acc']});
+// ---- 指令2：ADD 201 ----
+R.mar='101'; push('取指① PC→MAR','FETCH','第一条指令完成，新的取指周期开始：PC（=101）→ MAR，去取下一条指令。',{flow:{from:'cell-pc',to:'cell-mar',label:'101'},hl:['reg-pc','reg-mar']});
+R.mdr='ADD 201'; push('取指② 内存→MDR','FETCH','内存 101 号格子的指令 ADD 201 进入 MDR。',{flow:{from:'mem-101',to:'cell-mdr-0',label:'ADD 201'},memHl:101,hl:['reg-mar','reg-mdr']});
+EXE.add(101); R.ir='ADD 201'; push('取指③ MDR→IR','FETCH','ADD 201 装进 IR，成为"当前指令"。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'ADD 201'},hl:['reg-mdr','reg-ir']});
+R.pc='102'; push('取指④ PC 自动+1','FETCH','PC 又自动 +1 → 102。它永远指向"还没执行的下一条"。',{pcBump:true,hl:['reg-pc']});
+R.mar='201'; push('执行 ADD ①','EXEC','ADD 是加法指令：操作数 201 是地址，去 201 号格子取另一个加数。',{flow:{from:'cell-ir-1',to:'cell-mar',label:'201'},hl:['reg-ir','reg-mar']});
+R.mdr='5'; push('执行 ADD ②','EXEC','201 号格子的数据 5 进入 MDR。',{flow:{from:'mem-201',to:'cell-mdr-0',label:'5'},memHl:201,hl:['reg-mar','reg-mdr']});
+R.acc='8'; push('执行 ADD ③ 计算','EXEC','ALU 计算 3 + 5 = 8，结果放回 ACC。ADD 201 执行完毕。',{flow:{from:'cell-mdr-0',to:'cell-acc',label:'3+5=8'},hl:['reg-mdr','reg-acc']});
+// ---- 指令3：STORE 202 ----
+R.mar='102'; push('取指① PC→MAR','FETCH','取下一条：PC（=102）→ MAR。',{flow:{from:'cell-pc',to:'cell-mar',label:'102'},hl:['reg-pc','reg-mar']});
+R.mdr='STORE 202'; push('取指② 内存→MDR','FETCH','指令 STORE 202 进入 MDR。',{flow:{from:'mem-102',to:'cell-mdr-0',label:'STORE 202'},memHl:102,hl:['reg-mar','reg-mdr']});
+EXE.add(102); R.ir='STORE 202'; push('取指③ MDR→IR','FETCH','STORE 202 装进 IR。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'STORE 202'},hl:['reg-mdr','reg-ir']});
+R.pc='103'; push('取指④ PC 自动+1','FETCH','PC +1 → 103。',{pcBump:true,hl:['reg-pc']});
+R.mar='202'; push('执行 STORE ①','EXEC','STORE 是存数指令：把结果写到 202 号格子。目标地址先送 MAR。',{flow:{from:'cell-ir-1',to:'cell-mar',label:'202'},hl:['reg-ir','reg-mar']});
+M['202']='8'; push('执行 STORE ② 写回','EXEC','ACC 里的 8 沿数据总线写回内存 202 号格子。程序的计算结果落地：202 = 8 ✅',{flow:{from:'cell-acc',to:'mem-202',label:'8'},memHl:202,hl:['reg-acc']});
+// ---- 指令4：JMP 104（点睛之笔）----
+R.mar='103'; push('取指① PC→MAR','FETCH','取下一条：PC（=103）→ MAR。',{flow:{from:'cell-pc',to:'cell-mar',label:'103'},hl:['reg-pc','reg-mar']});
+R.mdr='JMP 104'; push('取指② 内存→MDR','FETCH','指令 JMP 104 进入 MDR。',{flow:{from:'mem-103',to:'cell-mdr-0',label:'JMP 104'},memHl:103,hl:['reg-mar','reg-mdr']});
+EXE.add(103); R.ir='JMP 104'; push('取指③ MDR→IR','FETCH','JMP 104 装进 IR。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'JMP 104'},hl:['reg-mdr','reg-ir']});
+R.pc='104'; push('取指④ PC 自动+1','FETCH','PC 照常 +1 → 104。（先别急，下一步才是精髓）',{pcBump:true,hl:['reg-pc']});
+R.pc='104'; push('执行 JMP ★ 改写 PC','EXEC','重磅：JMP 指令的全部工作，就是把 IR 操作数格里的 104 直接写进 PC——改书签！哪怕目标是 500，PC 也会立刻变成 500。你写过的 jmp / je / call / ret，包括调试器的断点，底层都是在改写 PC。程序往哪走，从来都是 PC 说了算。',{flow:{from:'cell-ir-1',to:'cell-pc',label:'104'},hl:['reg-ir','reg-pc']});
+// ---- 指令5：HALT ----
+R.mar='104'; push('取指① PC→MAR','FETCH','取指继续：PC（=104，刚被 JMP 改写）→ MAR。',{flow:{from:'cell-pc',to:'cell-mar',label:'104'},hl:['reg-pc','reg-mar']});
+R.mdr='HALT'; push('取指② 内存→MDR','FETCH','指令 HALT 进入 MDR。',{flow:{from:'mem-104',to:'cell-mdr-0',label:'HALT'},memHl:104,hl:['reg-mar','reg-mdr']});
+EXE.add(104); R.ir='HALT'; push('取指③ MDR→IR','FETCH','HALT 装进 IR。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'HALT'},hl:['reg-mdr','reg-ir']});
+R.pc='105'; push('取指④ PC 自动+1','FETCH','PC +1 → 105（已无意义，马上停机）。',{pcBump:true,hl:['reg-pc']});
+push('停机 · HALT','END','HALT 执行，程序结束。回看全程：PC 始终是"导航员"，永远指向下一条指令的地址——所以题目问"跟踪后继指令地址的寄存器"，答案就是 PC（程序计数器）。你选的 IR，装的是"当前指令本体"。',{hl:['reg-pc','reg-ir'],memHl:202,done:true});
+
+// ============ 渲染 ============
+const memEl = document.getElementById('mem');
+function buildMem() {
+  memEl.innerHTML = '';
+  for (const addr of [100,101,102,103,104]) memEl.appendChild(memRow(addr,'code'));
+  const dv=document.createElement('div'); dv.className='mem-divider'; dv.textContent='—— 指令区 / 数据区分界 ——';
+  memEl.appendChild(dv);
+  for (const addr of [200,201,202]) memEl.appendChild(memRow(addr,'data'));
+}
+function memRow(addr, cls) {
+  const row=document.createElement('div'); row.className='mem-row '+cls; row.id='mem-'+addr;
+  row.innerHTML=`<span class="addr">${addr}</span><span class="content" id="mv-${addr}">${memCellHTML(addr, mem0[addr])}</span>`;
+  return row;
+}
+// 内存格子的内容：指令区拆成 操作码|操作数 两小格，数据区一格
+function memCellHTML(addr, val) {
+  if (addr < 200) {
+    const parts = val.split(' ');
+    return `<span class="cell op">${parts[0]}</span><span class="cell num">${parts[1]||''}</span>`;
+  }
+  return `<span class="cell dat">${val}</span>`;
+}
+// 寄存器内部小格子：地址格 / 数据格 / 操作码+操作数双格
+function mkCell(cid, v, cls, empty, tag) {
+  return `<span class="cell ${cls}${empty?' empty':''}" id="${cid}">${v||''}<span class="tag">${tag}</span></span>`;
+}
+function cellsHTML(cid, val, layout) {
+  if (layout === 'instr2') {          // 固定两格：操作码|操作数（IR）
+    const parts = val ? val.split(' ') : ['',''];
+    return mkCell(cid+'-0', parts[0], 'op', !val, '操作码') + mkCell(cid+'-1', parts[1], 'num', !val, '操作数');
+  }
+  if (layout === 'dyn') {             // 动态：装指令拆两格，装数据一格（MDR）
+    if (!val) return mkCell(cid+'-0', '', 'dat', true, '数据/指令');
+    if (val.includes(' ')) {
+      const parts = val.split(' ');
+      return mkCell(cid+'-0', parts[0], 'op', false, '操作码') + mkCell(cid+'-1', parts[1], 'num', false, '操作数');
+    }
+    return mkCell(cid+'-0', val, 'dat', false, '数据');
+  }
+  if (layout === 'addr') return mkCell(cid, val, 'addr', !val, '地址');   // PC / MAR
+  return mkCell(cid, val, 'dat', !val, '数据');                            // ACC
+}
+buildMem();
+
+let cur = 0, playing = null;
+function render(i) {
+  const s = steps[i];
+  document.getElementById('cells-pc').innerHTML  = cellsHTML('cell-pc',  s.regs.pc,  'addr');
+  document.getElementById('cells-ir').innerHTML  = cellsHTML('cell-ir',  s.regs.ir,  'instr2');
+  document.getElementById('cells-mar').innerHTML = cellsHTML('cell-mar', s.regs.mar, 'addr');
+  document.getElementById('cells-mdr').innerHTML = cellsHTML('cell-mdr', s.regs.mdr, 'dyn');
+  document.getElementById('cells-acc').innerHTML = cellsHTML('cell-acc', s.regs.acc, 'data');
+  for (const addr of Object.keys(s.mem)) document.getElementById('mv-'+addr).innerHTML = memCellHTML(+addr, s.mem[addr]);
+  document.querySelectorAll('.reg').forEach(e=>e.classList.remove('active','bump'));
+  s.hl.forEach(id=>document.getElementById(id).classList.add('active'));
+  if (s.pcBump) { void document.getElementById('reg-pc').offsetWidth; document.getElementById('reg-pc').classList.add('bump'); }
+  document.querySelectorAll('.mem-row').forEach(e=>e.classList.remove('reading','result','fetched','pc-here'));
+  s.executed.forEach(a=>{ const el=document.getElementById('mem-'+a); if(el) el.classList.add('fetched'); });
+  const pcAddr = +s.regs.pc;
+  if (pcAddr>=100 && pcAddr<=104) { const el=document.getElementById('mem-'+pcAddr); if(el) el.classList.add('pc-here'); }
+  if (s.memHl !== null) document.getElementById('mem-'+s.memHl).classList.add('reading');
+  if (s.done) document.getElementById('mem-202').classList.add('result');
+  document.getElementById('descT').innerHTML = `${s.title}<span class="phase-tag phase-${s.phase}">${s.phase==='FETCH'?'取指周期':s.phase==='EXEC'?'执行周期':s.phase==='INIT'?'准备':'结束'}</span>`;
+  document.getElementById('descD').textContent = s.desc;
+  document.getElementById('stepInd').textContent = `步骤 ${i+1} / ${steps.length}`;
+  if (s.flow) animateChip(s.flow);
+}
+function animateChip(flow) {
+  const stage=document.getElementById('stage'), chip=document.getElementById('chip');
+  const f=document.getElementById(flow.from).getBoundingClientRect();
+  const t=document.getElementById(flow.to).getBoundingClientRect();
+  const ss=stage.getBoundingClientRect();
+  chip.style.transition='none';
+  chip.style.left=(f.left+f.width/2-ss.left)+'px';
+  chip.style.top=(f.top+f.height/2-ss.top)+'px';
+  chip.textContent=flow.label;
+  chip.classList.add('show');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    chip.style.transition='left .8s cubic-bezier(.4,0,.2,1), top .8s cubic-bezier(.4,0,.2,1)';
+    chip.style.left=(t.left+t.width/2-ss.left)+'px';
+    chip.style.top=(t.top+t.height/2-ss.top)+'px';
+  }));
+}
+function stepNext(){ if(cur<steps.length-1){cur++;render(cur);} else stopPlay(); }
+function stepPrev(){ if(cur>0){cur--;render(cur);} }
+function togglePlay(){
+  if(playing){stopPlay();return;}
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  playing=setInterval(stepNext,1400);
+}
+function stopPlay(){ if(playing){clearInterval(playing);playing=null;} document.getElementById('playBtn').textContent='▶ 自动播放'; }
+function reset(){ stopPlay(); cur=0; render(0); }
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight')stepNext();
+  if(e.key==='ArrowLeft')stepPrev();
+});
+render(0);
+</script>
+</body>
+</html>
