@@ -32,6 +32,8 @@
   .reg .name b { font-size:14px; }
   .reg .val { font-family:Menlo,Consolas,monospace; font-size:15px; font-weight:bold; min-height:20px; word-break:break-all; }
   .reg .duty { font-size:11px; color:#6e7681; margin-top:3px; }
+  .reg .name .en { font-size:10px; color:#6e7681; font-weight:normal; letter-spacing:.5px; margin-left:5px; }
+  .alu .en { font-size:10px; color:#6e7681; font-weight:normal; margin-top:2px; display:block; }
 
   /* 寄存器内部小格子 */
   .cells { display:flex; gap:5px; margin:6px 0 15px; }
@@ -59,11 +61,30 @@
 
   .alu { background:#161b22; border:2px dashed #30363d; border-radius:10px; padding:10px 12px; text-align:center; color:#6e7681; font-size:12px; min-height:70px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px;}
   .alu b { color:#bc8cff; font-size:14px; }
+  .alu-op { font-family:Menlo,Consolas,monospace; font-size:15px; font-weight:bold; color:#bc8cff; margin-top:4px; min-height:20px; }
+  .alu.calc { border-color:#bc8cff; box-shadow:0 0 18px #bc8cff55; }
 
   /* 总线通道 */
-  .bus-lane { position:relative; }
-  .bus-lane::before { content:"总线（地址/数据在 CPU 与内存间流动）"; position:absolute; top:50%; left:50%;
-    transform:translate(-50%,-50%) ; writing-mode:vertical-lr; letter-spacing:6px; font-size:11px; color:#30363d; }
+  .bus-lane { position:relative; display:flex; flex-direction:column; justify-content:space-evenly; gap:10px; padding:0 8px; }
+  .bus { flex:1; border:2px dashed #30363d; border-radius:10px; display:flex; align-items:center; justify-content:center;
+         flex-direction:column; gap:4px; font-size:12px; color:#6e7681; transition:all .3s; text-align:center; }
+  .bus b { font-size:14px; letter-spacing:2px; }
+  .bus small { font-size:9px; color:#484f58; line-height:1.4; }
+  .bus.addr.on { border-color:#3fb950; border-style:solid; box-shadow:0 0 18px #3fb95044; }
+  .bus.addr.on b { color:#3fb950; }
+  .bus.data.on { border-color:#58a6ff; border-style:solid; box-shadow:0 0 18px #58a6ff44; }
+  .bus.data.on b { color:#79c0ff; }
+
+  /* ID 指令译码器 */
+  .idu { background:#161b22; border:2px dashed #30363d; border-radius:10px; padding:10px 12px; min-height:70px;
+         display:flex; flex-direction:column; transition:box-shadow .3s, border-color .3s; }
+  .idu .name { font-size:12px; color:#8b949e; margin-bottom:4px; letter-spacing:1px; }
+  .idu .name b { color:#d29922; font-size:14px; }
+  .idu .name .en { font-size:10px; color:#6e7681; font-weight:normal; margin-left:5px; }
+  .idu .duty { font-size:11px; color:#6e7681; margin-top:3px; }
+  .id-result { font-family:Menlo,Consolas,monospace; font-size:13px; font-weight:bold; color:#6e7681; min-height:20px; margin:6px 0 2px; }
+  .idu.decoding { border-color:#d29922; box-shadow:0 0 16px #d2992255; }
+  .idu.decoding .id-result { color:#ffa657; }
 
   /* 内存表 */
   .mem-panel { display:flex; flex-direction:column; }
@@ -122,6 +143,20 @@
   table.kt th { background:#161b22; color:#8b949e; text-align:left; padding:8px 12px; border:1px solid #30363d; font-size:12.5px;}
   table.kt td { padding:8px 12px; border:1px solid #30363d; color:#c9d1d9; line-height:1.6; }
   table.kt td:first-child { font-weight:bold; color:#79c0ff; white-space:nowrap; }
+
+  /* 指令旅程进度条 */
+  .journey { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px 16px; margin-bottom:16px; }
+  .journey-title { font-size:13px; color:#39c5cf; margin-bottom:10px; font-weight:bold; }
+  .journey-title .hint { color:#6e7681; font-weight:normal; font-size:12px; margin-left:8px; }
+  .journey-steps { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+  .jstep { background:#0f151d; border:1px solid #30363d; border-radius:8px; padding:5px 4px; text-align:center;
+           font-size:10px; color:#6e7681; transition:all .3s; line-height:1.25; }
+  .jstep .n { font-size:9px; color:#484f58; }
+  .jstep .ab { font-weight:bold; color:#79c0ff; font-size:10.5px; display:block; }
+  .jstep .fn { font-size:8px; color:#6e7681; display:block; margin-top:1px; word-break:break-word; }
+  .jstep .fn2 { font-size:9px; color:#8b949e; display:block; margin-top:2px; }
+  .jstep.on { border-color:#39c5cf; background:#39c5cf18; box-shadow:0 0 12px #39c5cf44; }
+  .jstep.on .ab, .jstep.on .n { color:#39c5cf; }
 </style>
 </head>
 <body>
@@ -140,19 +175,29 @@
   </ol>
 </div>
 
+<div class="journey">
+  <div class="journey-title">🚶 一条指令的旅程<span class="hint">随动画播放高亮当前位置（每个格子 = 完整英文名 + 中文名）</span></div>
+  <div class="journey-steps" id="journeySteps"></div>
+</div>
+
 <div class="stage" id="stage">
   <div class="cpu-panel">
     <div class="panel-title">CPU 内部</div>
     <div class="reg-grid">
-      <div class="reg" id="reg-pc"><div class="name"><b>PC</b> 程序计数器</div><div class="cells" id="cells-pc"></div><div class="duty">书签：下一条指令的地址</div></div>
-      <div class="reg" id="reg-ir"><div class="name"><b>IR</b> 指令寄存器</div><div class="cells" id="cells-ir"></div><div class="duty">当前正在执行的指令本体</div></div>
-      <div class="reg" id="reg-mar"><div class="name"><b>MAR</b> 地址寄存器</div><div class="cells" id="cells-mar"></div><div class="duty">对内存喊话：读哪个地址</div></div>
-      <div class="reg" id="reg-mdr"><div class="name"><b>MDR</b> 数据寄存器</div><div class="cells" id="cells-mdr"></div><div class="duty">数据/指令进出的转运站</div></div>
-      <div class="reg" id="reg-acc"><div class="name"><b>ACC</b> 累加器</div><div class="cells" id="cells-acc"></div><div class="duty">ALU 算数的工作台</div></div>
-      <div class="alu"><b>ALU + 控制单元</b>算数 / 译码 / 发号施令</div>
+      <div class="reg" id="reg-pc"><div class="name"><b>PC</b> 程序计数器<span class="en">Program Counter</span></div><div class="cells" id="cells-pc"></div><div class="duty">书签：下一条指令的地址</div></div>
+      <div class="reg" id="reg-ir"><div class="name"><b>IR</b> 指令寄存器<span class="en">Instruction Register</span></div><div class="cells" id="cells-ir"></div><div class="duty">当前正在执行的指令本体</div></div>
+      <div class="reg" id="reg-mar"><div class="name"><b>MAR</b> 地址寄存器<span class="en">Memory Address Register</span></div><div class="cells" id="cells-mar"></div><div class="duty">对内存喊话：读哪个地址</div></div>
+      <div class="reg" id="reg-mdr"><div class="name"><b>MDR</b> 数据寄存器<span class="en">Memory Data Register</span></div><div class="cells" id="cells-mdr"></div><div class="duty">数据/指令进出的转运站</div></div>
+      <div class="reg" id="reg-acc"><div class="name"><b>ACC</b> 累加器<span class="en">Accumulator</span></div><div class="cells" id="cells-acc"></div><div class="duty">ALU 算数的工作台</div></div>
+      <div class="alu" id="aluBox"><b>ALU + 控制单元</b><span class="alu-op" id="aluOp">算数 / 译码 / 发号施令</span><span class="en">Arithmetic Logic Unit</span></div>
+      <div class="idu" id="iduBox"><div class="name"><b>ID</b> 指令译码器<span class="en">Instruction Decoder</span></div><div class="id-result" id="idResult">等待译码…</div><div class="duty">拆操作码 → 翻译成微操作</div></div>
+      <div class="reg" id="reg-psw"><div class="name"><b>PSW</b> 状态寄存器<span class="en">Program Status Word</span></div><div class="cells" id="cells-psw"></div><div class="duty">记录结果状态：条件跳转的依据</div></div>
     </div>
   </div>
-  <div class="bus-lane"></div>
+  <div class="bus-lane">
+    <div class="bus addr" id="busAddr"><b>地址总线</b><small>Address Bus<br>CPU → 内存报门牌号</small></div>
+    <div class="bus data" id="busData"><b>数据总线</b><small>Data Bus<br>传数据 / 传指令</small></div>
+  </div>
   <div class="mem-panel">
     <div class="panel-title">内存（每行一个格子）</div>
     <div class="mem" id="mem"></div>
@@ -174,7 +219,7 @@
 
 <div class="know">
   <div class="card pc">
-    <h3>PC 程序计数器 = 书签</h3>
+    <h3>PC 程序计数器 = 书签<span style="font-size:11px;color:#6e7681;font-weight:normal">(Program Counter)</span></h3>
     <ul>
       <li>存的是<b>下一条指令的地址</b>（不是指令！）</li>
       <li>顺序执行时<b>自动 +1</b></li>
@@ -184,7 +229,7 @@
     </ul>
   </div>
   <div class="card ir">
-    <h3>IR 指令寄存器 = 当前这页</h3>
+    <h3>IR 指令寄存器 = 当前这页<span style="font-size:11px;color:#6e7681;font-weight:normal">(Instruction Register)</span></h3>
     <ul>
       <li>存的是<b>当前正在执行的指令本体</b>（操作码+操作数）</li>
       <li>来源是 <b>MDR</b>，不是 PC！（常考坑）</li>
@@ -205,12 +250,12 @@
 
 <table class="kt">
   <tr><th>寄存器</th><th>职责</th><th>考试常见问法</th></tr>
-  <tr><td>PC</td><td>下一条指令的地址</td><td>"跟踪后继指令地址"；顺序执行自动+1；转移指令修改它</td></tr>
-  <tr><td>IR</td><td>当前执行的指令本体</td><td>"存放当前正在执行的指令"</td></tr>
-  <tr><td>MAR/AR</td><td>CPU 欲访问的内存地址</td><td>"对内存操作的地址存放于"</td></tr>
-  <tr><td>MDR/DR</td><td>与内存交换的数据</td><td>"读出/写入的数据暂存于"</td></tr>
-  <tr><td>ACC</td><td>ALU 工作台（累加）</td><td>运算数据/结果的存放处</td></tr>
-  <tr><td>PSW</td><td>标志位：零/进位/溢出/符号</td><td>条件转移指令（JE 等）的判断依据</td></tr>
+  <tr><td>PC<br><span style="font-size:11px;color:#8b949e;font-weight:normal">Program Counter</span></td><td>下一条指令的地址</td><td>"跟踪后继指令地址"；顺序执行自动+1；转移指令修改它</td></tr>
+  <tr><td>IR<br><span style="font-size:11px;color:#8b949e;font-weight:normal">Instruction Register</span></td><td>当前执行的指令本体</td><td>"存放当前正在执行的指令"</td></tr>
+  <tr><td>MAR/AR<br><span style="font-size:11px;color:#8b949e;font-weight:normal">Memory Address Register</span></td><td>CPU 欲访问的内存地址</td><td>"对内存操作的地址存放于"</td></tr>
+  <tr><td>MDR/DR<br><span style="font-size:11px;color:#8b949e;font-weight:normal">Memory Data Register</span></td><td>与内存交换的数据</td><td>"读出/写入的数据暂存于"</td></tr>
+  <tr><td>ACC<br><span style="font-size:11px;color:#8b949e;font-weight:normal">Accumulator</span></td><td>ALU 工作台（累加）</td><td>运算数据/结果的存放处</td></tr>
+  <tr><td>PSW<br><span style="font-size:11px;color:#8b949e;font-weight:normal">Program Status Word</span></td><td>标志位：零/进位/溢出/符号</td><td>条件转移指令（JE 等）的判断依据</td></tr>
 </table>
 
 <script>
@@ -229,45 +274,46 @@ function push(title, phase, desc, opt={}) {
   steps.push({title, phase, desc,
     regs:{...R}, mem:{...M}, executed:new Set(EXE),
     hl: opt.hl || [], memHl: (opt.memHl ?? null),
-    flow: opt.flow || null, pcBump: opt.pcBump || false, done: opt.done || false});
+    flow: opt.flow || null, pcBump: opt.pcBump || false, done: opt.done || false, alu: opt.alu || '',
+    idu: opt.idu || '', psw: opt.psw || null});
 }
 
 // ---- 指令1：LOAD 200 ----
-push('准备 · 程序装入内存','INIT','内存就是一排带编号（地址）的格子。程序编译后，指令一条条躺在格子里（橙色区），数据躺在蓝色区。CPU 肚子里有个"书签" PC，现在指着 100：意思是"下一条指令去 100 号格子取"。',{hl:['reg-pc']});
-R.mar='100'; push('取指① PC→MAR','FETCH','取指开始！CPU 把书签上的编号递给 MAR（地址寄存器），相当于对内存喊话："给我读 100 号格子"。MAR 专门负责报地址。',{flow:{from:'cell-pc',to:'cell-mar',label:'100'},hl:['reg-pc','reg-mar']});
-R.mdr='LOAD 200'; push('取指② 内存→MDR','FETCH','内存收到地址，把 100 号格子的内容——指令 LOAD 200 本体——放进 MDR（转运站）。注意路上跑的是指令本身，不是地址！',{flow:{from:'mem-100',to:'cell-mdr-0',label:'LOAD 200'},memHl:100,hl:['reg-mar','reg-mdr']});
-EXE.add(100); R.ir='LOAD 200'; push('取指③ MDR→IR','FETCH','指令从 MDR 装进 IR，自动分成两个小格：操作码 LOAD（干什么）+ 操作数 200（对谁干）——这就是"指令 = 操作码 + 操作数"。从现在起到执行完，IR 装的就是"当前正在执行的指令"。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'LOAD 200'},hl:['reg-mdr','reg-ir']});
-R.pc='101'; push('取指④ PC 自动+1','FETCH','与此同时 PC 自动 +1 → 101。敲黑板看这一幕：IR = 当前指令(LOAD 200)，PC = 下一条的地址(101)。一个管"现在"，一个管"下一步"——这就是本题考点！',{pcBump:true,hl:['reg-pc','reg-ir']});
-R.mar='200'; push('执行 LOAD ①','EXEC','译码器认出操作码是 LOAD（取数）：注意飞过去的是 IR 里**操作数格**的 200（不是整条指令！）——操作数是内存地址，送 MAR："去 200 号格子拿数据"。',{flow:{from:'cell-ir-1',to:'cell-mar',label:'200'},hl:['reg-ir','reg-mar']});
-R.mdr='3'; push('执行 LOAD ②','EXEC','内存 200 号格子里存着数据 3，送入 MDR。',{flow:{from:'mem-200',to:'cell-mdr-0',label:'3'},memHl:200,hl:['reg-mar','reg-mdr']});
-R.acc='3'; push('执行 LOAD ③ 完成','EXEC','3 装进 ACC（累加器）。LOAD 200 执行完毕：ACC = 3。',{flow:{from:'cell-mdr-0',to:'cell-acc',label:'3'},hl:['reg-mdr','reg-acc']});
+push('准备 · 程序装入内存','INIT','内存就是一排带编号（地址）的格子。程序编译后，指令一条条躺在格子里（橙色区），数据躺在蓝色区。CPU 肚子里有个"书签" PC，现在指着 100：意思是"下一条指令去 100 号格子取"。',{hl:['reg-pc'],journey:[]});
+R.mar='100'; push('取指① PC→MAR','FETCH','取指开始！CPU 把书签上的编号递给 MAR（地址寄存器），相当于对内存喊话："给我读 100 号格子"。MAR 专门负责报地址。',{flow:{from:'cell-pc',to:'cell-mar',label:'100'},hl:['reg-pc','reg-mar'],journey:[1, 2]});
+R.mdr='LOAD 200'; push('取指② 内存→MDR','FETCH','内存收到地址，把 100 号格子的内容——指令 LOAD 200 本体——放进 MDR（转运站）。注意路上跑的是指令本身，不是地址！',{flow:{from:'mem-100',to:'cell-mdr-0',label:'LOAD 200'},memHl:100,hl:['reg-mar','reg-mdr'],journey:[3, 4]});
+EXE.add(100); R.ir='LOAD 200'; push('取指③ MDR→IR','FETCH','指令从 MDR 装进 IR，自动分成两个小格：操作码 LOAD（干什么）+ 操作数 200（对谁干）——这就是"指令 = 操作码 + 操作数"。从现在起到执行完，IR 装的就是"当前正在执行的指令"。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'LOAD 200'},hl:['reg-mdr','reg-ir'],journey:[5, 6]});
+R.pc='101'; push('取指④ PC 自动+1','FETCH','与此同时 PC 自动 +1 → 101。敲黑板看这一幕：IR = 当前指令(LOAD 200)，PC = 下一条的地址(101)。一个管"现在"，一个管"下一步"——这就是本题考点！',{pcBump:true,hl:['reg-pc','reg-ir'],journey:[1]});
+R.mar='200'; push('执行 LOAD ①','EXEC','译码器认出操作码是 LOAD（取数）：注意飞过去的是 IR 里**操作数格**的 200（不是整条指令！）——操作数是内存地址，送 MAR："去 200 号格子拿数据"。',{flow:{from:'cell-ir-1',to:'cell-mar',label:'200'},hl:['reg-ir','reg-mar'],journey:[2],idu:'LOAD = 取数'});
+R.mdr='3'; push('执行 LOAD ②','EXEC','内存 200 号格子里存着数据 3，送入 MDR。',{flow:{from:'mem-200',to:'cell-mdr-0',label:'3'},memHl:200,hl:['reg-mar','reg-mdr'],journey:[3, 4]});
+R.acc='3'; push('执行 LOAD ③ 完成','EXEC','3 装进 ACC（累加器）。LOAD 200 执行完毕：ACC = 3。',{flow:{from:'cell-mdr-0',to:'cell-acc',label:'3'},hl:['reg-mdr','reg-acc'],alu:'ACC ← 3',journey:[9]});
 // ---- 指令2：ADD 201 ----
-R.mar='101'; push('取指① PC→MAR','FETCH','第一条指令完成，新的取指周期开始：PC（=101）→ MAR，去取下一条指令。',{flow:{from:'cell-pc',to:'cell-mar',label:'101'},hl:['reg-pc','reg-mar']});
-R.mdr='ADD 201'; push('取指② 内存→MDR','FETCH','内存 101 号格子的指令 ADD 201 进入 MDR。',{flow:{from:'mem-101',to:'cell-mdr-0',label:'ADD 201'},memHl:101,hl:['reg-mar','reg-mdr']});
-EXE.add(101); R.ir='ADD 201'; push('取指③ MDR→IR','FETCH','ADD 201 装进 IR，成为"当前指令"。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'ADD 201'},hl:['reg-mdr','reg-ir']});
-R.pc='102'; push('取指④ PC 自动+1','FETCH','PC 又自动 +1 → 102。它永远指向"还没执行的下一条"。',{pcBump:true,hl:['reg-pc']});
-R.mar='201'; push('执行 ADD ①','EXEC','ADD 是加法指令：操作数 201 是地址，去 201 号格子取另一个加数。',{flow:{from:'cell-ir-1',to:'cell-mar',label:'201'},hl:['reg-ir','reg-mar']});
-R.mdr='5'; push('执行 ADD ②','EXEC','201 号格子的数据 5 进入 MDR。',{flow:{from:'mem-201',to:'cell-mdr-0',label:'5'},memHl:201,hl:['reg-mar','reg-mdr']});
-R.acc='8'; push('执行 ADD ③ 计算','EXEC','ALU 计算 3 + 5 = 8，结果放回 ACC。ADD 201 执行完毕。',{flow:{from:'cell-mdr-0',to:'cell-acc',label:'3+5=8'},hl:['reg-mdr','reg-acc']});
+R.mar='101'; push('取指① PC→MAR','FETCH','第一条指令完成，新的取指周期开始：PC（=101）→ MAR，去取下一条指令。',{flow:{from:'cell-pc',to:'cell-mar',label:'101'},hl:['reg-pc','reg-mar'],journey:[1, 2]});
+R.mdr='ADD 201'; push('取指② 内存→MDR','FETCH','内存 101 号格子的指令 ADD 201 进入 MDR。',{flow:{from:'mem-101',to:'cell-mdr-0',label:'ADD 201'},memHl:101,hl:['reg-mar','reg-mdr'],journey:[3, 4]});
+EXE.add(101); R.ir='ADD 201'; push('取指③ MDR→IR','FETCH','ADD 201 装进 IR，成为"当前指令"。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'ADD 201'},hl:['reg-mdr','reg-ir'],journey:[5, 6]});
+R.pc='102'; push('取指④ PC 自动+1','FETCH','PC 又自动 +1 → 102。它永远指向"还没执行的下一条"。',{pcBump:true,hl:['reg-pc'],journey:[1]});
+R.mar='201'; push('执行 ADD ①','EXEC','ADD 是加法指令：操作数 201 是地址，去 201 号格子取另一个加数。',{flow:{from:'cell-ir-1',to:'cell-mar',label:'201'},hl:['reg-ir','reg-mar'],journey:[2],idu:'ADD = 加法'});
+R.mdr='5'; push('执行 ADD ②','EXEC','201 号格子的数据 5 进入 MDR。',{flow:{from:'mem-201',to:'cell-mdr-0',label:'5'},memHl:201,hl:['reg-mar','reg-mdr'],journey:[3, 4]});
+R.acc='8'; push('执行 ADD ③ 计算','EXEC','ALU 计算 3 + 5 = 8，结果放回 ACC。ADD 201 执行完毕。',{flow:{from:'cell-mdr-0',to:'cell-acc',label:'3+5=8'},hl:['reg-mdr','reg-acc'],alu:'3 + 5 = 8',journey:[7, 8, 9],psw:['0','0','0','0']});
 // ---- 指令3：STORE 202 ----
-R.mar='102'; push('取指① PC→MAR','FETCH','取下一条：PC（=102）→ MAR。',{flow:{from:'cell-pc',to:'cell-mar',label:'102'},hl:['reg-pc','reg-mar']});
-R.mdr='STORE 202'; push('取指② 内存→MDR','FETCH','指令 STORE 202 进入 MDR。',{flow:{from:'mem-102',to:'cell-mdr-0',label:'STORE 202'},memHl:102,hl:['reg-mar','reg-mdr']});
-EXE.add(102); R.ir='STORE 202'; push('取指③ MDR→IR','FETCH','STORE 202 装进 IR。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'STORE 202'},hl:['reg-mdr','reg-ir']});
-R.pc='103'; push('取指④ PC 自动+1','FETCH','PC +1 → 103。',{pcBump:true,hl:['reg-pc']});
-R.mar='202'; push('执行 STORE ①','EXEC','STORE 是存数指令：把结果写到 202 号格子。目标地址先送 MAR。',{flow:{from:'cell-ir-1',to:'cell-mar',label:'202'},hl:['reg-ir','reg-mar']});
-M['202']='8'; push('执行 STORE ② 写回','EXEC','ACC 里的 8 沿数据总线写回内存 202 号格子。程序的计算结果落地：202 = 8 ✅',{flow:{from:'cell-acc',to:'mem-202',label:'8'},memHl:202,hl:['reg-acc']});
+R.mar='102'; push('取指① PC→MAR','FETCH','取下一条：PC（=102）→ MAR。',{flow:{from:'cell-pc',to:'cell-mar',label:'102'},hl:['reg-pc','reg-mar'],journey:[1, 2]});
+R.mdr='STORE 202'; push('取指② 内存→MDR','FETCH','指令 STORE 202 进入 MDR。',{flow:{from:'mem-102',to:'cell-mdr-0',label:'STORE 202'},memHl:102,hl:['reg-mar','reg-mdr'],journey:[3, 4]});
+EXE.add(102); R.ir='STORE 202'; push('取指③ MDR→IR','FETCH','STORE 202 装进 IR。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'STORE 202'},hl:['reg-mdr','reg-ir'],journey:[5, 6]});
+R.pc='103'; push('取指④ PC 自动+1','FETCH','PC +1 → 103。',{pcBump:true,hl:['reg-pc'],journey:[1]});
+R.mar='202'; push('执行 STORE ①','EXEC','STORE 是存数指令：把结果写到 202 号格子。目标地址先送 MAR。',{flow:{from:'cell-ir-1',to:'cell-mar',label:'202'},hl:['reg-ir','reg-mar'],journey:[2],idu:'STORE = 存数'});
+M['202']='8'; push('执行 STORE ② 写回','EXEC','ACC 里的 8 沿数据总线写回内存 202 号格子。程序的计算结果落地：202 = 8 ✅',{flow:{from:'cell-acc',to:'mem-202',label:'8'},memHl:202,hl:['reg-acc'],alu:'ACC → 内存 202',journey:[9]});
 // ---- 指令4：JMP 104（点睛之笔）----
-R.mar='103'; push('取指① PC→MAR','FETCH','取下一条：PC（=103）→ MAR。',{flow:{from:'cell-pc',to:'cell-mar',label:'103'},hl:['reg-pc','reg-mar']});
-R.mdr='JMP 104'; push('取指② 内存→MDR','FETCH','指令 JMP 104 进入 MDR。',{flow:{from:'mem-103',to:'cell-mdr-0',label:'JMP 104'},memHl:103,hl:['reg-mar','reg-mdr']});
-EXE.add(103); R.ir='JMP 104'; push('取指③ MDR→IR','FETCH','JMP 104 装进 IR。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'JMP 104'},hl:['reg-mdr','reg-ir']});
-R.pc='104'; push('取指④ PC 自动+1','FETCH','PC 照常 +1 → 104。（先别急，下一步才是精髓）',{pcBump:true,hl:['reg-pc']});
-R.pc='104'; push('执行 JMP ★ 改写 PC','EXEC','重磅：JMP 指令的全部工作，就是把 IR 操作数格里的 104 直接写进 PC——改书签！哪怕目标是 500，PC 也会立刻变成 500。你写过的 jmp / je / call / ret，包括调试器的断点，底层都是在改写 PC。程序往哪走，从来都是 PC 说了算。',{flow:{from:'cell-ir-1',to:'cell-pc',label:'104'},hl:['reg-ir','reg-pc']});
+R.mar='103'; push('取指① PC→MAR','FETCH','取下一条：PC（=103）→ MAR。',{flow:{from:'cell-pc',to:'cell-mar',label:'103'},hl:['reg-pc','reg-mar'],journey:[1, 2]});
+R.mdr='JMP 104'; push('取指② 内存→MDR','FETCH','指令 JMP 104 进入 MDR。',{flow:{from:'mem-103',to:'cell-mdr-0',label:'JMP 104'},memHl:103,hl:['reg-mar','reg-mdr'],journey:[3, 4]});
+EXE.add(103); R.ir='JMP 104'; push('取指③ MDR→IR','FETCH','JMP 104 装进 IR。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'JMP 104'},hl:['reg-mdr','reg-ir'],journey:[5, 6]});
+R.pc='104'; push('取指④ PC 自动+1','FETCH','PC 照常 +1 → 104。（先别急，下一步才是精髓）',{pcBump:true,hl:['reg-pc'],journey:[1]});
+R.pc='104'; push('执行 JMP ★ 改写 PC','EXEC','重磅：JMP 指令的全部工作，就是把 IR 操作数格里的 104 直接写进 PC——改书签！哪怕目标是 500，PC 也会立刻变成 500。你写过的 jmp / je / call / ret，包括调试器的断点，底层都是在改写 PC。程序往哪走，从来都是 PC 说了算。',{flow:{from:'cell-ir-1',to:'cell-pc',label:'104'},hl:['reg-ir','reg-pc'],journey:[1],idu:'JMP = 跳转'});
 // ---- 指令5：HALT ----
-R.mar='104'; push('取指① PC→MAR','FETCH','取指继续：PC（=104，刚被 JMP 改写）→ MAR。',{flow:{from:'cell-pc',to:'cell-mar',label:'104'},hl:['reg-pc','reg-mar']});
-R.mdr='HALT'; push('取指② 内存→MDR','FETCH','指令 HALT 进入 MDR。',{flow:{from:'mem-104',to:'cell-mdr-0',label:'HALT'},memHl:104,hl:['reg-mar','reg-mdr']});
-EXE.add(104); R.ir='HALT'; push('取指③ MDR→IR','FETCH','HALT 装进 IR。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'HALT'},hl:['reg-mdr','reg-ir']});
-R.pc='105'; push('取指④ PC 自动+1','FETCH','PC +1 → 105（已无意义，马上停机）。',{pcBump:true,hl:['reg-pc']});
-push('停机 · HALT','END','HALT 执行，程序结束。回看全程：PC 始终是"导航员"，永远指向下一条指令的地址——所以题目问"跟踪后继指令地址的寄存器"，答案就是 PC（程序计数器）。你选的 IR，装的是"当前指令本体"。',{hl:['reg-pc','reg-ir'],memHl:202,done:true});
+R.mar='104'; push('取指① PC→MAR','FETCH','取指继续：PC（=104，刚被 JMP 改写）→ MAR。',{flow:{from:'cell-pc',to:'cell-mar',label:'104'},hl:['reg-pc','reg-mar'],journey:[1, 2]});
+R.mdr='HALT'; push('取指② 内存→MDR','FETCH','指令 HALT 进入 MDR。',{flow:{from:'mem-104',to:'cell-mdr-0',label:'HALT'},memHl:104,hl:['reg-mar','reg-mdr'],journey:[3, 4]});
+EXE.add(104); R.ir='HALT'; push('取指③ MDR→IR','FETCH','HALT 装进 IR。',{flow:{from:'cell-mdr-0',to:'cell-ir-0',label:'HALT'},hl:['reg-mdr','reg-ir'],journey:[5, 6]});
+R.pc='105'; push('取指④ PC 自动+1','FETCH','PC +1 → 105（已无意义，马上停机）。',{pcBump:true,hl:['reg-pc'],journey:[1]});
+push('停机 · HALT','END','HALT 执行，程序结束。回看全程：PC 始终是"导航员"，永远指向下一条指令的地址——所以题目问"跟踪后继指令地址的寄存器"，答案就是 PC（程序计数器）。你选的 IR，装的是"当前指令本体"。',{hl:['reg-pc','reg-ir'],memHl:202,done:true,journey:[]});
 
 // ============ 渲染 ============
 const memEl = document.getElementById('mem');
@@ -313,6 +359,24 @@ function cellsHTML(cid, val, layout) {
 }
 buildMem();
 
+const JOURNEY = [
+  ['1','程序计数器','Program Counter','下一条在哪?'],
+  ['2','地址寄存器','Memory Address Register','这次去哪取?'],
+  ['3','内存','Memory','把指令取出'],
+  ['4','数据寄存器','Memory Data Register','取到的先放这'],
+  ['5','指令寄存器','Instruction Register','现在正做哪条?'],
+  ['6','指令译码器','Instruction Decoder','这条啥意思?'],
+  ['7','控制器','Control Unit','发控制信号'],
+  ['8','算术逻辑单元','Arithmetic Logic Unit','干活! 算!'],
+  ['9','累加器','Accumulator','结果先放这'],
+  ['10','状态寄存器','Program Status Word','结果咋样?'],
+];
+function buildJourney() {
+  const box = document.getElementById('journeySteps');
+  box.innerHTML = JOURNEY.map((s,i)=>`<div class="jstep" id="js${i}"><span class="n">${s[0]}</span><span class="ab">${s[1]}</span><span class="fn">${s[2]}</span><span class="fn2">${s[3]}</span></div>`).join('');
+}
+buildJourney();
+
 let cur = 0, playing = null;
 function render(i) {
   const s = steps[i];
@@ -333,6 +397,15 @@ function render(i) {
   if (s.done) document.getElementById('mem-202').classList.add('result');
   document.getElementById('descT').innerHTML = `${s.title}<span class="phase-tag phase-${s.phase}">${s.phase==='FETCH'?'取指周期':s.phase==='EXEC'?'执行周期':s.phase==='INIT'?'准备':'结束'}</span>`;
   document.getElementById('descD').textContent = s.desc;
+  document.getElementById('aluOp').textContent = s.alu || '算数 / 译码 / 发号施令';
+  const ab=document.getElementById('aluBox'); ab.classList.toggle('calc', !!s.alu);
+  document.getElementById('idResult').textContent = s.idu || '等待译码…';
+  document.getElementById('iduBox').classList.toggle('decoding', !!s.idu);
+  const pswVals = s.psw || ['-','-','-','-'];
+  document.getElementById('cells-psw').innerHTML = ['C','V','Z','N'].map((f,i)=>mkCell('psw-'+i, pswVals[i], 'dat', pswVals[i]==='-', f)).join('');
+  document.getElementById('busAddr').classList.remove('on');
+  document.getElementById('busData').classList.remove('on');
+  for (let k=0;k<10;k++) document.getElementById('js'+k).classList.toggle('on', (s.journey||[]).includes(k+1));
   document.getElementById('stepInd').textContent = `步骤 ${i+1} / ${steps.length}`;
   if (s.flow) animateChip(s.flow);
 }
@@ -341,6 +414,10 @@ function animateChip(flow) {
   const f=document.getElementById(flow.from).getBoundingClientRect();
   const t=document.getElementById(flow.to).getBoundingClientRect();
   const ss=stage.getBoundingClientRect();
+  const isAddr = /^(cell-pc|cell-mar|cell-ir-1)/.test(flow.from);
+  const bn = isAddr ? 'busAddr' : 'busData', bx = isAddr ? 'busData' : 'busAddr';
+  document.getElementById(bn).classList.add('on');
+  document.getElementById(bx).classList.remove('on');
   chip.style.transition='none';
   chip.style.left=(f.left+f.width/2-ss.left)+'px';
   chip.style.top=(f.top+f.height/2-ss.top)+'px';
