@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>原码·反码·补码·移码 转换动画 · 真值→机器数精讲</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d1117; color:#e6edf3;
+    font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    padding:28px 36px; max-width:1180px; margin:0 auto;
+  }
+  h1 { font-size:22px; margin-bottom:6px; }
+  h1 .hl { color:#39c5cf; }
+  .sub { color:#8b949e; font-size:13px; margin-bottom:18px; }
+
+  .pre { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .pre b { color:#e6edf3; }
+  .pre .k { color:#39c5cf; } .pre .g { color:#3fb950; } .pre .o { color:#ffa657; } .pre .p { color:#bc8cff; }
+
+  .pickers { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+  .pickers .grp { display:flex; gap:6px; align-items:center; }
+  .pickers .grp-tag { font-size:12px; color:#8b949e; margin-right:4px; }
+  button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:8px; padding:7px 14px;
+    font-size:13.5px; cursor:pointer; transition:all .2s; }
+  button:hover { background:#30363d; border-color:#8b949e; }
+  button.sel { background:#238636; border-color:#2ea043; font-weight:bold; }
+  button.primary { background:#238636; border-color:#2ea043; font-weight:bold; }
+  button.primary:hover { background:#2ea043; }
+
+  .stage { background:#0f151d; border:1px solid #30363d; border-radius:12px; padding:20px 22px; }
+
+  .trueval { display:flex; align-items:baseline; gap:10px; margin-bottom:16px; padding:12px 16px;
+    background:#161b22; border:1px solid #21262d; border-radius:10px; }
+  .trueval .lbl { font-size:12px; color:#8b949e; letter-spacing:2px; }
+  .trueval .num { font-size:30px; font-weight:bold; color:#e6edf3; font-family:Menlo,monospace; }
+  .trueval .bin { font-family:Menlo,monospace; font-size:15px; color:#79c0ff; font-weight:bold; }
+  .trueval .hint { font-size:12px; color:#6e7681; margin-left:auto; }
+
+  .code-row { display:grid; grid-template-columns:120px 1fr; gap:14px; align-items:center; padding:10px 6px; border-radius:10px; margin-bottom:6px; transition:all .3s; }
+  .code-row.active { background:#39c5cf10; border:1px solid #39c5cf33; }
+  .code-row .name { font-size:14px; }
+  .code-row .name b { font-size:16px; }
+  .code-row .name .en { display:block; font-size:10px; color:#6e7681; font-weight:normal; }
+  .code-row .name .rule { font-size:11px; color:#8b949e; margin-top:2px; }
+  #row-orig .name b { color:#3fb950; }
+  #row-inv  .name b { color:#ffa657; }
+  #row-comp .name b { color:#79c0ff; }
+  #row-shift .name b { color:#bc8cff; }
+
+  .cells { display:flex; gap:6px; }
+  .cell { flex:1; min-height:34px; border-radius:7px; display:flex; align-items:center; justify-content:center;
+    font-family:Menlo,Consolas,monospace; font-size:17px; font-weight:bold; position:relative; transition:all .25s; }
+  .cell.sign { background:#161b22; border:2px solid #2ea04366; color:#7ee787; }
+  .cell.sign.big { font-size:20px; }
+  .cell.val { background:#161b22; border:1.5px solid #30363d; color:#e6edf3; }
+  .cell .w { position:absolute; bottom:-16px; left:0; right:0; text-align:center; font-size:9px; color:#6e7681; font-weight:normal; letter-spacing:0; }
+  .cell.empty { color:#30363d; border-style:dashed; }
+  .cell.flip { animation:flip .4s ease; }
+  .cell.focus { border-color:#39c5cf; box-shadow:0 0 12px #39c5cf66; transform:scale(1.12); }
+  @keyframes flip { 0%{transform:rotateX(0)} 50%{transform:rotateX(90deg)} 100%{transform:rotateX(0)} }
+  .cell.sign.flip { animation:flip .4s ease; border-color:#bc8cff; }
+  .cell.x { border-color:#ff7b7266; color:#ff7b72; text-decoration:line-through; }
+
+  .numaxis { margin-top:18px; padding:14px 10px 22px; background:#161b22; border:1px solid #21262d; border-radius:10px; position:relative; }
+  .numaxis .t { font-size:12px; color:#8b949e; letter-spacing:1px; margin-bottom:8px; }
+  .numaxis .lbl-top { font-size:11px; color:#39c5cf; margin-bottom:4px; }
+  .axis { position:relative; height:26px; border-bottom:2px solid #30363d; margin:0 6px; }
+  .axis .tick { position:absolute; bottom:0; transform:translateX(-50%); font-size:10px; color:#8b949e; font-family:Menlo,monospace; }
+  .axis .dot { position:absolute; top:-6px; transform:translateX(-50%); width:9px; height:9px; border-radius:50%; }
+  .axis .dot.c { background:#79c0ff; }
+  .axis .dot.s { background:#bc8cff; }
+  .legend { position:absolute; right:12px; top:4px; font-size:11px; color:#8b949e; }
+  .legend .c::before { content:''; display:inline-block; width:8px; height:8px; border-radius:50%; background:#79c0ff; margin-right:4px; }
+  .legend .s::before { content:''; display:inline-block; width:8px; height:8px; border-radius:50%; background:#bc8cff; margin-right:4px; }
+
+  .controls { margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .step-ind { font-family:Menlo,monospace; font-size:13px; color:#8b949e; margin-left:auto; }
+
+  .desc-box { margin-top:12px; background:#161b22; border:1px solid #30363d; border-left:4px solid #39c5cf;
+    border-radius:8px; padding:12px 16px; min-height:70px; }
+  .desc-box .t { font-weight:bold; font-size:15px; margin-bottom:5px; }
+  .desc-box .d { font-size:13.5px; line-height:1.7; color:#c9d1d9; }
+
+  .know { margin-top:22px; display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
+  .card h3 { font-size:15px; margin-bottom:10px; }
+  .card ul { margin-left:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .card b { color:#e6edf3; }
+  .card.g h3 { color:#3fb950; } .card.o h3 { color:#ffa657; }
+  .card.b h3 { color:#79c0ff; } .card.p h3 { color:#bc8cff; }
+</style>
+</head>
+<body>
+
+<h1>原码 · 反码 · 补码 · 移码 <span class="hl">转换动画</span></h1>
+<div class="sub">软考 · 计算机组成原理 ｜ 数据表示 ｜ 点「下一步」看真值怎么一步步变成四种码</div>
+
+<div class="pre">
+  先记住一句话：<b>正数三码相同；负数取反、加一、翻符号位</b>。
+  上排四行从左到右：<span class="g">原码</span>（符号+绝对值）→ <span class="o">反码</span>（数值取反）→ <span class="b">补码</span>（反码+1）→ <span class="p">移码</span>（补码翻符号位）。
+  最右数字 = 每种码当作二进制数读出的<span class="k">编码值</span>，看它怎么从"负数最大"变成"负数最小"。
+</div>
+
+<div class="pickers">
+  <span class="grp-tag">整数：</span>
+  <span class="grp" id="grp-int">
+    <button data-v="45" class="sel">+45</button>
+    <button data-v="-45">-45</button>
+    <button data-v="1">+1</button>
+    <button data-v="-1">-1</button>
+    <button data-v="127">+127</button>
+    <button data-v="-128">-128</button>
+    <button data-v="0">0</button>
+  </span>
+  <span class="grp-tag" style="margin-left:14px">纯小数：</span>
+  <span class="grp" id="grp-dec">
+    <button data-v="0.5">+0.5</button>
+    <button data-v="-0.5">-0.5</button>
+    <button data-v="-0.25">-0.25</button>
+  </span>
+</div>
+
+<div class="stage">
+  <div class="numaxis" id="axisBox" style="display:none">
+    <div class="t">🔢 编码顺序对比（同一个数，各码编码值在数轴上的位置）</div>
+    <div class="lbl-top">补码：负数编码反而靠右（顺序反了）</div>
+    <div class="axis" id="axisC"></div>
+    <div style="height:22px"></div>
+    <div class="lbl-top">移码：负数在左、正数在右（编码=数值顺序 ✓）</div>
+    <div class="axis" id="axisS"></div>
+    <div class="legend"><span class="c">补码编码</span>　<span class="s">移码编码</span></div>
+  </div>
+
+  <div class="trueval">
+    <span class="lbl">真值 X</span>
+    <span class="num" id="trueNum">+45</span>
+    <span class="bin" id="trueBin">|45| = 101101₂</span>
+    <span class="hint" id="trueHint">n=8 位：1 符号位 + 7 数值位</span>
+  </div>
+
+  <div class="code-row" id="row-orig">
+    <div class="name"><b>原码</b><span class="en">True Form</span><span class="rule">符号位 + 绝对值</span></div>
+    <div class="cells" id="cells-orig"></div>
+  </div>
+  <div class="code-row" id="row-inv">
+    <div class="name"><b>反码</b><span class="en">One's Complement</span><span class="rule">负：数值位取反</span></div>
+    <div class="cells" id="cells-inv"></div>
+  </div>
+  <div class="code-row" id="row-comp">
+    <div class="name"><b>补码</b><span class="en">Two's Complement</span><span class="rule">负：反码末位 +1</span></div>
+    <div class="cells" id="cells-comp"></div>
+  </div>
+  <div class="code-row" id="row-shift">
+    <div class="name"><b>移码</b><span class="en">Shifted / Bias</span><span class="rule">补码符号位取反</span></div>
+    <div class="cells" id="cells-shift"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="primary" onclick="stepPrev()">◀ 上一步</button>
+  <button class="primary" onclick="stepNext()">下一步 ▶</button>
+  <button onclick="togglePlay()" id="playBtn">▶ 自动播放</button>
+  <button onclick="reset()">↺ 重置</button>
+  <span class="step-ind" id="stepInd"></span>
+</div>
+<div class="desc-box" id="descBox">
+  <div class="t" id="descT"></div>
+  <div class="d" id="descD"></div>
+</div>
+
+<div class="know">
+  <div class="card g"><h3>原码</h3><ul><li>最高位符号：0 正 / 1 负，其余 = 绝对值</li><li>0 有两种：+0=00000000、-0=10000000</li><li>范围：-127 ~ +127</li></ul></div>
+  <div class="card o"><h3>反码</h3><ul><li>负数 = 原码数值位<b>按位取反</b>（符号位不动）</li><li>正数反码 = 原码，0 也有 ±0 两种</li><li>它是算补码的中间步骤</li></ul></div>
+  <div class="card b"><h3>补码</h3><ul><li>负数 = 反码<b>末位 +1</b>（取反加一）</li><li><b>0 唯一</b>、多表示一个 -128（`10000000`）</li><li>减法转加法：`[X-Y]补=[X]补+[-Y]补`，机器用补码</li></ul></div>
+  <div class="card p"><h3>移码</h3><ul><li>负数 = 补码<b>符号位取反</b>（=真值+128）</li><li>编码大小 = 数值大小，浮点<b>阶码</b>专用</li><li>0 唯一：10000000</li></ul></div>
+</div>
+
+<script>
+// ============ 数值位权值 ============
+function weights(mode){
+  if(mode==='dec') return [0.5,0.25,0.125,0.0625,0.03125,0.015625,0.0078125];
+  return [64,32,16,8,4,2,1];
+}
+// 7 位绝对值 → bit 数组（左高位）
+function absBits(v, mode){
+  if(mode==='int'){
+    const n = Math.round(Math.abs(v));
+    const out=[]; let x=n;
+    for(let i=6;i>=0;i--){ out[i]=x%2; x=Math.floor(x/2); }
+    return out;
+  }
+  let a = Math.abs(v), out=[];
+  for(let i=0;i<7;i++){ a*=2; if(a>=1){out.push(1);a-=1;} else out.push(0); }
+  return out;
+}
+// bit数组(8: 符号+7值) → 二进制字符串
+function bs(b){ return b.join(''); }
+
+// ============ 当前数 ============
+let V = 45, MODE = 'int';
+function isNeg(){ return V < 0; }
+function inRange(){ return MODE==='dec' ? Math.abs(V)<=1 : Math.abs(V)<=127; } // -128 原码反码超界
+
+// 四种码（-128 特判）
+function codes(){
+  const sign = isNeg()?1:0;
+  if(!inRange()){ // -128：原码/反码无法表示
+    const comp=[1,0,0,0,0,0,0,0], shift=comp.map(b=>b^1);
+    return {orig:null, inv:null, comp, shift};
+  }
+  const abs = absBits(V, MODE);
+  let orig=[sign].concat(abs);
+  let inv;
+  if(isNeg()){ inv = orig.map((b,i)=> i===0?b:1-b); }
+  else inv = orig.slice();
+  let comp;
+  if(isNeg()){ // 反码+1 进位
+    comp = inv.slice(); let c=1;
+    for(let i=7;i>=1 && c;i--){ if(comp[i]===1){comp[i]=0;} else {comp[i]=1;c=0;} }
+  } else comp = orig.slice();
+  let shift = comp.map((b,i)=> i===0?1-b:b);
+  return {orig, inv, comp, shift};
+}
+
+// 编码值（当作无符号二进制读）
+function enc(bits){ return bits.reduce((s,b)=>s*2+b,0); }
+
+// ============ 步骤构建 ============
+let steps = [];
+function buildSteps(){
+  const c = codes(); steps = [];
+  const signTxt = isNeg() ? '1（负）' : '0（正）';
+  const w = weights(MODE);
+  const abs = absBits(V, MODE);
+  const numTxt = V>0 ? '+'+V : String(V);
+
+  // S0 准备
+  steps.push({ title:'① 真值 → 二进制', desc:`先把 ${numTxt} 的绝对值转成 7 位二进制（权值：${w.map(x=>x).join(', ')}）。最高位留作符号位。`,
+    anim:null, hi:[], rows:{orig:null,inv:null,comp:null,shift:null}, trueBin:`|${numTxt}| = ${bs([0].concat(abs))}` });
+
+  if(!inRange()){
+    steps.push({ title:'② 原码 — 无法表示 ⚠️', desc:'-128 的绝对值是 128，7 位数值位最大只能装 127，所以**原码/反码表示不了 -128**。这正是补码的优势所在！',
+      anim:null, hi:['orig'], rows:{orig:null,inv:null,comp:c.comp,shift:c.shift}, trueBin:`|−128| 溢出 7 位` });
+    steps.push({ title:'③ 补码 — 直接是 10000000', desc:'补码能表示 -128，编码就是 `10000000`（= 2^7 − 2^8 = −128）。原码反码做不到，就靠这个编码多表示一个最小负数。',
+      anim:null, hi:['comp'], rows:{orig:null,inv:null,comp:c.comp,shift:c.shift}, trueBin:`|−128| 溢出 7 位` });
+    steps.push({ title:'④ 移码 — 补码翻符号位', desc:'补码 `10000000` 符号位取反 → 移码 `00000000`（编码=0，表示 -128）。',
+      anim:{row:'shift', idx:[0], type:'sign'}, hi:['shift'], rows:{orig:null,inv:null,comp:c.comp,shift:c.shift}, trueBin:`|−128| 溢出 7 位` });
+    steps.push({ title:'⑤ 对比总结', desc:'同一真值 -128：原码/反码没有，补码 `10000000`，移码 `00000000`。这就是"仅补码能表示 -128（整数）/ -1（小数）"那道题的由来。',
+      anim:null, hi:[], rows:{orig:null,inv:null,comp:c.comp,shift:c.shift}, trueBin:`|−128| 溢出 7 位` });
+    return;
+  }
+
+  // 原码
+  steps.push({ title:'② 写原码 — 符号位'+signTxt,
+    desc: `原码 = <b>符号位</b> + <b>绝对值</b>。${isNeg()?'因为是负数，符号位填 1：':'因为是正数，符号位填 0：'} <code>${signTxt.split('（')[0]}</code> + <code>${abs.map(String).join('')}</code> = <code>${bs(c.orig)}</code>`,
+    anim:{row:'orig', idx:[0], type:'sign'}, hi:['orig'], rows:{orig:c.orig,inv:null,comp:null,shift:null}, trueBin:`|${numTxt}| = ${bs([0].concat(abs))}` });
+
+  // 反码
+  if(isNeg()){
+    steps.push({ title:'③ 反码 — 数值位逐位取反',
+      desc:'负数反码 = 符号位保持 1，数值位每一位 **0↔1 取反**。看下面格子逐个翻转。',
+      anim:{row:'inv', idx:[1,2,3,4,5,6,7], type:'inv'}, hi:['inv'], rows:{orig:c.orig,inv:c.inv,comp:null,shift:null}, trueBin:`|${numTxt}| = ${bs([0].concat(abs))}` });
+  } else {
+    steps.push({ title:'③ 反码 — 正数不变',
+      desc:'**正数三码相同**：+'+V+' 的反码 = 原码 = `'+bs(c.orig)+'`，一位都不用动。只有负数才取反。',
+      anim:null, hi:['inv'], rows:{orig:c.orig,inv:c.inv,comp:null,shift:null}, trueBin:`|${numTxt}| = ${bs([0].concat(abs))}` });
+  }
+
+  // 补码
+  if(isNeg()){
+    const carryIdx = carryIndices(c.inv);
+    steps.push({ title:'④ 补码 — 反码末位 +1（进位）',
+      desc:'负数补码 = 反码 <b>末位加 1</b>。从最右往左做加法：'+carryIdx.t + ' 结果为 <code>'+bs(c.comp)+'</code>',
+      anim:{row:'comp', idx:carryIdx.idx, type:'add'}, hi:['comp'], rows:{orig:c.orig,inv:c.inv,comp:c.comp,shift:null}, trueBin:`|${numTxt}| = ${bs([0].concat(abs))}` });
+  } else {
+    steps.push({ title:'④ 补码 — 正数不变',
+      desc:'正数补码 = 原码 = `'+bs(c.orig)+'`。**正数原码=反码=补码**，这一条在正数时永远成立。',
+      anim:null, hi:['comp'], rows:{orig:c.orig,inv:c.inv,comp:c.comp,shift:null}, trueBin:`|${numTxt}| = ${bs([0].concat(abs))}` });
+  }
+
+  // 移码
+  steps.push({ title:'⑤ 移码 — 补码符号位取反',
+    desc:'移码 = 补码<b>符号位取反</b>：`'+bs(c.comp)+'` → `'+bs(c.shift)+'`。本质是真值整体 +128（编码值从 '+enc(c.comp)+' 变到 '+enc(c.shift)+'），让编码大小 = 数值大小。',
+    anim:{row:'shift', idx:[0], type:'sign'}, hi:['shift'], rows:{orig:c.orig,inv:c.inv,comp:c.comp,shift:c.shift}, trueBin:`|${numTxt}| = ${bs([0].concat(abs))}` });
+
+  // 总结
+  steps.push({ title:'⑥ 四种码对照 + 编码顺序',
+    desc:'看上面数轴：**补码**里负数（'+numTxt+'）的编码值反而靠右偏大，顺序是反的；**移码**翻完符号位，负数在左、0 在中间、正数在右，编码顺序 = 数值顺序，所以浮点阶码用移码。',
+    anim:null, hi:[], rows:{orig:c.orig,inv:c.inv,comp:c.comp,shift:c.shift}, trueBin:`|${numTxt}| = ${bs([0].concat(abs))}` });
+}
+// 反码+1 的进位格子序列（含文字说明）
+function carryIndices(inv){
+  let idx=[], bits=inv.slice(), carry=1, text=[];
+  for(let i=7;i>=1;i--){
+    idx.push(i);
+    if(bits[i]===1){ text.unshift(`第${8-i}位 1+1=0 进位`); bits[i]=0; }
+    else { text.unshift(`第${8-i}位 0+1=1 进位结束`); bits[i]=1; carry=0; break; }
+  }
+  return { idx, t: text.join(' → ') };
+}
+
+// ============ 渲染 ============
+function cellHTML(bit, i, weight, cls, wTxt){
+  const wLbl = i===0 ? (wTxt||'符号') : String(weight);
+  return `<span class="cell ${cls}" id="cell-${cls}-${i}" data-v="${bit}">${bit}<span class="w">${wLbl}</span></span>`;
+}
+function renderRow(id, bits, isSign, hi){
+  if(bits==null){
+    document.getElementById(id).innerHTML = '<span class="cell x">超出范围，无法表示</span>';
+    return;
+  }
+  const w = weights(MODE);
+  const html = bits.map((b,i)=> i===0 ? cellHTML(b,i,0,'sign') : cellHTML(b,i,w[i-1],'val')).join('');
+  document.getElementById(id).innerHTML = html;
+  document.getElementById(id).classList.toggle('active', hi);
+}
+let cur = 0, playing = null, animTimer = null;
+function stopAnim(){ if(animTimer){ clearTimeout(animTimer); animTimer=null; } }
+
+function render(i){
+  stopAnim();
+  const s = steps[i];
+  const R = s.rows;
+  const hiAll = s.hi;
+  renderRow('cells-orig', R.orig, true, hiAll.includes('orig'));
+  renderRow('cells-inv', R.inv, true, hiAll.includes('inv'));
+  renderRow('cells-comp', R.comp, true, hiAll.includes('comp'));
+  renderRow('cells-shift', R.shift, true, hiAll.includes('shift'));
+  document.getElementById('trueBin').textContent = s.trueBin;
+  document.getElementById('descT').textContent = s.title;
+  document.getElementById('descD').innerHTML = s.desc;
+  document.getElementById('stepInd').textContent = `步骤 ${i+1} / ${steps.length}`;
+  document.getElementById('axisBox').style.display = (s.title.includes('对照')||s.title.includes('对比')) ? 'block':'none';
+  if(s.anim) runAnim(s.anim);
+}
+
+function runAnim(anim){
+  const rowId = {orig:'cells-orig',inv:'cells-inv',comp:'cells-comp',shift:'cells-shift'}[anim.row];
+  const base = anim.row==='orig'?codes().orig : anim.row==='inv'?codes().inv : anim.row==='comp'?codes().comp : codes().shift;
+  const isSignFlip = anim.type==='sign';
+  let k = 0;
+  function step(){
+    if(k>=anim.idx.length) return;
+    const gi = anim.idx[k];
+    const el = document.getElementById('cell-'+anim.row+'-'+gi);
+    if(!el) return;
+    if(anim.type==='inv'){
+      el.textContent = base[gi];
+      el.classList.add('flip');
+    } else if(anim.type==='add'){
+      el.textContent = base[gi];
+      el.classList.add('flip','focus');
+    } else {
+      el.textContent = base[gi];
+      el.classList.add('flip');
+    }
+    k++;
+    animTimer = setTimeout(step, 160);
+  }
+  step();
+}
+
+// 数轴：把 0..2^8-1 的编码值画到轴上，标当前数的补码/移码编码
+function buildAxis(){
+  const W = document.getElementById('axisBox').clientWidth - 12;
+  const c = codes();
+  if(!c.comp) return;
+  const mark = (axisId, dotCls, val)=>{
+    const x = 6 + val/255*(W-12);
+    const ax = document.getElementById(axisId);
+    const div = document.createElement('div');
+    div.className='dot '+dotCls;
+    div.style.left = x+'px';
+    div.title = '编码值 '+val;
+    ax.appendChild(div);
+    const t = document.createElement('div');
+    t.className='tick'; t.style.left=x+'px';
+    t.textContent = val; t.style.bottom = -14;
+    ax.appendChild(t);
+  };
+  ['axisC','axisS'].forEach(a=>document.getElementById(a).innerHTML='');
+  // 轴两端标签
+  ['axisC','axisS'].forEach(id=>{
+    const ax=document.getElementById(id);
+    const l=document.createElement('div'); l.className='tick'; l.style.left='6px'; l.style.bottom='-14px'; l.textContent='0';
+    const r=document.createElement('div'); r.className='tick'; r.style.right='-6px'; r.style.bottom='-14px'; r.textContent='255';
+    ax.appendChild(l); ax.appendChild(r);
+  });
+  mark('axisC','c', enc(c.comp));
+  mark('axisS','s', enc(c.shift));
+}
+
+// ============ 控制 ============
+function pick(v){
+  stopAnim(); stopPlay();
+  V = v; MODE = Math.abs(v)>=1 && Number.isInteger(v) ? 'int':'dec';
+  if(v===-128) MODE='int';
+  document.querySelectorAll('.pickers button').forEach(b=>b.classList.toggle('sel', +b.dataset.v===v));
+  document.getElementById('trueNum').textContent = v>0?'+'+v:String(v);
+  buildSteps(); cur=0; render(0);
+}
+function stepNext(){ if(cur<steps.length-1){cur++;render(cur);} else stopPlay(); }
+function stepPrev(){ if(cur>0){cur--;render(cur);} }
+function togglePlay(){
+  if(playing){stopPlay();return;}
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  playing=setInterval(()=>{ if(cur>=steps.length-1) stopPlay(); else stepNext(); }, 2000);
+}
+function stopPlay(){ if(playing){clearInterval(playing);playing=null;} document.getElementById('playBtn').textContent='▶ 自动播放'; }
+function reset(){ stopPlay(); buildSteps(); cur=0; render(0); }
+document.querySelectorAll('.pickers button').forEach(b=>b.onclick=()=>pick(+b.dataset.v));
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight')stepNext();
+  if(e.key==='ArrowLeft')stepPrev();
+});
+
+pick(45);
+</script>
+</body>
+</html>
