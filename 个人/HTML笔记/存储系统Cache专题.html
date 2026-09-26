@@ -356,6 +356,21 @@ H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。
 <h2 class="sec" id="s6b">⑥B 真题风格 · 单选（考场就是这种） <span class="en">exam-style</span></h2>
 <div class="key o">⚠️ 下面 4 道是按<b>历年考场形态</b>整理的「真题风格」题，练的是套路不是背原卷。每道限时 <b>90 秒</b>，先在心里选完再点开答案。</div>
 
+<div class="qbox" style="border-color:#3fb95088;background:#3fb9500d">
+  <div class="q"><b>【真题原文 · 已验证 ✅｜指令 Cache vs 数据 Cache】</b>设某流水线计算机主存的读/写时间为 <b>100ns</b>，有一个<b>指令和数据合一的 Cache</b>，已知该 Cache 的读/写时间为 <b>10ns</b>，<b>取指令的命中率为 98%</b>，<b>取数的命中率为 95%</b>。在执行某类程序时，约有 <b>1/5 指令</b>需要存/取一个操作数。假设指令流水线在任何时候都不阻塞，则设置 Cache 后，每条指令的平均访存时间约为（　　）<br>
+  A. 12ns　　B. 15ns　　C. 18ns　　D. 120ns</div>
+  <details><summary>点击看答案 + 完整计算</summary><div class="ans">
+    <b>B（约 14.7 ns → 选 15ns）</b>。<br>
+    ① 取指：t<sub>if</sub> = 0.98×10 + 0.02×100 = 9.8 + 2 = <b>11.8 ns</b><br>
+    ② 取数：t<sub>d</sub> = 0.95×10 + 0.05×100 = 9.5 + 5 = <b>14.5 ns</b><br>
+    ③ 加权：平均 = 11.8 + (1/5)×14.5 = 11.8 + 2.9 = <b>14.7 ns</b><br>
+    🔑 算门：<b>指令必然取指 1 次（100%），但只有 1/5 指令要取数（20%）</b>——这个"发生频率"不给，就永远算不出唯一值。<br>
+    🔑 为什么两个命中率不一样：<b>取指是顺序流（PC→PC+1，局部性极强，98%）；取数是随机跳（地址乱，局部性弱，95%）</b>。这就是现代 CPU 把 L1 拆成 I-Cache / D-Cache 的原因。<br>
+    <b>举一反三（哈佛结构变体）</b>：改成"分开的指令 Cache 和数据 Cache"，问"与无 Cache 比运算速度提高多少倍" → 无 Cache 每条 = 100 + 0.2×100 = <b>120ns</b>；有 Cache = 14.7ns；提速 = 120 / 14.7 ≈ <b>8 倍</b>。<br>
+    <span style="color:#6e7681;font-size:12px">来源（公开渠道收录的原始题干）：信管网 · 百度教育 · 知了爱学 · 希赛网 · 腾讯云开发者社区 · 上学吧 · 51test 无忧考网。</span>
+  </div></details>
+</div>
+
 <div class="qbox">
   <div class="q"><b>【真题风格·1｜算 t<sub>a</sub>】</b>某系统 Cache 的存取时间为 <b>10ns</b>，主存存取时间为 <b>100ns</b>，Cache 命中率为 <b>95%</b>，Cache 与主存<b>同时启动</b>。则该 Cache-主存系统的平均存取时间和加速比分别约为（　　）<br>
   A. 14.5ns，6.9　　B. 15ns，6.7　　C. 14.5ns，10　　D. 5.5ns，6.9</div>
