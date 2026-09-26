@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>进程状态转换 动画 · 三态四转换 + 两条不存在的路</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d1117; color:#e6edf3;
+    font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    padding:28px 36px; max-width:1100px; margin:0 auto;
+  }
+  h1 { font-size:22px; margin-bottom:6px; }
+  h1 .hl { color:#39c5cf; }
+  .sub { color:#8b949e; font-size:13px; margin-bottom:18px; }
+
+  .pre { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .pre b { color:#e6edf3; }
+  .pre .k { color:#39c5cf; } .pre .g { color:#3fb950; } .pre .o { color:#ffa657; } .pre .r { color:#ff7b72; }
+
+  .stage-wrap { background:#0f151d; border:1px solid #30363d; border-radius:12px; padding:14px 16px 6px; }
+  svg { width:100%; height:auto; display:block; }
+
+  .node rect { fill:#161b22; stroke:#30363d; stroke-width:2; transition:all .3s; }
+  .node text { fill:#e6edf3; font-size:22px; font-weight:bold; text-anchor:middle; dominant-baseline:middle; }
+  .node .en { font-size:11px; font-weight:normal; fill:#6e7681; }
+  #node-run rect { stroke:#39c5cf66; }
+  #node-rd  rect { stroke:#3fb95066; }
+  #node-blk rect { stroke:#ffa65766; }
+  #node-run.hot rect { stroke:#39c5cf; box-shadow:0 0 14px #39c5cf; }
+  #node-rd.hot rect  { stroke:#3fb950; }
+  #node-blk.hot rect { stroke:#ffa657; }
+
+  .edge { fill:none; stroke:#484f58; stroke-width:2.5; marker-end:url(#ah); transition:all .25s; }
+  .edge.on { stroke:#39c5cf; stroke-width:4; marker-end:url(#ah-on); filter:drop-shadow(0 0 6px #39c5cf88); }
+  .edge.bad { stroke:#ff7b72; stroke-width:4; stroke-dasharray:8 6; marker-end:url(#ah-bad); }
+  .elbl { fill:#8b949e; font-size:13px; text-anchor:middle; }
+  .elbl.on { fill:#39c5cf; font-weight:bold; }
+
+  #token circle { fill:#238636; stroke:#7ee787; stroke-width:2; }
+  #token text { fill:#fff; font-size:16px; font-weight:bold; text-anchor:middle; dominant-baseline:middle; }
+  #token { transition: transform .85s cubic-bezier(.4,0,.2,1); filter:drop-shadow(0 0 8px #238636aa); }
+
+  .controls { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:8px; padding:8px 14px;
+    font-size:13.5px; cursor:pointer; transition:all .2s; }
+  button:hover { background:#30363d; border-color:#8b949e; }
+  button.ok { border-color:#2ea04366; }
+  button.ok:hover { background:#238636; border-color:#2ea043; }
+  button.bad { border-color:#ff7b7266; color:#ff9b93; }
+  button.bad:hover { background:#5c1f1f; border-color:#ff7b72; }
+  button.ghost { margin-left:auto; }
+
+  .desc-box { margin-top:12px; background:#161b22; border:1px solid #30363d; border-left:4px solid #39c5cf;
+    border-radius:8px; padding:12px 16px; min-height:74px; }
+  .desc-box.bad { border-left-color:#ff7b72; }
+  .desc-box .t { font-weight:bold; font-size:15px; margin-bottom:5px; }
+  .desc-box .d { font-size:13.5px; line-height:1.7; color:#c9d1d9; }
+  .desc-box .d code { background:#21262d; padding:1px 6px; border-radius:4px; color:#79c0ff; font-family:Menlo,monospace; }
+
+  .know { margin-top:22px; display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
+  .card h3 { font-size:15px; margin-bottom:10px; }
+  .card ul { margin-left:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .card b { color:#e6edf3; }
+  .card.g h3 { color:#3fb950; } .card.b h3 { color:#39c5cf; } .card.r h3 { color:#ff7b72; }
+  .card.full { grid-column:1 / -1; }
+  .memo { margin-top:18px; background:#161b22; border:1px dashed #39c5cf66; border-radius:10px; padding:14px 18px;
+    font-size:13.5px; line-height:2; color:#c9d1d9; }
+  .memo b { color:#39c5cf; }
+</style>
+</head>
+<body>
+
+<h1>进程状态转换 <span class="hl">动画</span></h1>
+<div class="sub">软考 · 操作系统 ｜ 点下面的按钮，看进程令牌在三个状态间怎么走 ｜ 两条 ❌ 的路点不进去</div>
+
+<div class="pre">
+  <b>一句话定盘</b>：<span class="g">就绪</span>缺的是 <b>CPU</b>，<span class="o">阻塞</span>缺的是 <b>别的（等 I/O/资源）</b>。
+  缺的东西不一样，所以 <b>就绪 ↔ 阻塞 不能直接跳</b>，中间必须经过运行。
+</div>
+
+<div class="stage-wrap">
+  <svg viewBox="0 0 800 360" id="stage">
+    <defs>
+      <marker id="ah" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto">
+        <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#484f58"/>
+      </marker>
+      <marker id="ah-on" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto">
+        <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#39c5cf"/>
+      </marker>
+      <marker id="ah-bad" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto">
+        <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#ff7b72"/>
+      </marker>
+    </defs>
+
+    <!-- 转换箭头 -->
+    <path id="arr-a" class="edge" d="M 150 263 Q 175 118 330 112"/>
+    <path id="arr-b" class="edge" d="M 352 125 Q 312 240 202 263"/>
+    <path id="arr-c" class="edge" d="M 450 125 Q 490 240 598 263"/>
+    <path id="arr-d" class="edge" d="M 550 300 L 262 300"/>
+
+    <text id="lbl-a" class="elbl" x="228" y="150">① 被调度</text>
+    <text id="lbl-b" class="elbl" x="255" y="228">② 时间片用完</text>
+    <text id="lbl-c" class="elbl" x="556" y="205">③ 请求 I/O</text>
+    <text id="lbl-d" class="elbl" x="410" y="290">④ I/O 完成 / 事件到达</text>
+
+    <!-- 状态节点 -->
+    <g id="node-run" class="node">
+      <rect x="320" y="55" width="160" height="70" rx="12"/>
+      <text x="400" y="82">运行<tspan class="en" x="400" dy="20">Running</tspan></text>
+    </g>
+    <g id="node-rd" class="node">
+      <rect x="90" y="265" width="160" height="70" rx="12"/>
+      <text x="170" y="292">就绪<tspan class="en" x="170" dy="20">Ready</tspan></text>
+    </g>
+    <g id="node-blk" class="node">
+      <rect x="550" y="265" width="160" height="70" rx="12"/>
+      <text x="630" y="292">阻塞<tspan class="en" x="630" dy="20">Blocked</tspan></text>
+    </g>
+
+    <!-- 进程令牌 -->
+    <g id="token" transform="translate(170,300)">
+      <circle r="17"/>
+      <text y="1">P</text>
+    </g>
+  </svg>
+
+  <div class="controls">
+    <button class="ok" onclick="go('rd','run','a','就绪 → 运行','进程被<b>调度程序选中</b>，分到 CPU，开始执行。这是唯一能进入运行态的路。')">① 就绪 → 运行</button>
+    <button class="ok" onclick="go('run','rd','b','运行 → 就绪','<b>时间片用完</b>，被抢占，交还 CPU，回到就绪队列<b>重新排队</b>。')">② 运行 → 就绪</button>
+    <button class="ok" onclick="go('run','blk','c','运行 → 阻塞','进程<b>主动</b>请求 I/O 或等待某资源，光给 CPU 也跑不动，于是交出 CPU 进入等待。')">③ 运行 → 阻塞</button>
+    <button class="ok" onclick="go('blk','rd','d','阻塞 → 就绪','等待的事件发生了（I/O 完成），进程<b>被动唤醒</b>，回到就绪队列。注意：是回就绪，不是直接上 CPU。')">④ 阻塞 → 就绪</button>
+    <button class="bad" onclick="bad('就绪 → 阻塞','进程<b>还没上 CPU 运行</b>，怎么会"请求 I/O"？阻塞是运行中才会发生的事。<b>此转换不存在</b>。')">❌ 就绪 → 阻塞</button>
+    <button class="bad" onclick="bad('阻塞 → 运行','事件完成后<b>必须先回就绪队列排队</b>，不能插队直接抢 CPU。<b>此转换不存在</b>。')">❌ 阻塞 → 运行</button>
+    <button class="ghost" onclick="reset()">↺ 重置</button>
+  </div>
+
+  <div class="desc-box" id="descBox">
+    <div class="t" id="descT">进程现在停在「就绪」</div>
+    <div class="d" id="descD">就绪 = 万事俱备、只欠 CPU。点上面的按钮，走一条合法的转换试试。</div>
+  </div>
+</div>
+
+<div class="know">
+  <div class="card g"><h3>三种状态</h3><ul>
+    <li><b>运行</b>：正占着 CPU 在跑</li>
+    <li><b>就绪</b>：啥都齐了，<b>就差 CPU</b>，在队列里等调度</li>
+    <li><b>阻塞</b>：在等 I/O / 资源，<b>给 CPU 也用不了</b></li>
+  </ul></div>
+  <div class="card b"><h3>四条合法转换</h3><ul>
+    <li>就绪 → 运行：被调度选中</li>
+    <li>运行 → 就绪：时间片用完</li>
+    <li>运行 → 阻塞：主动请求 I/O</li>
+    <li>阻塞 → 就绪：I/O 完成（被动唤醒）</li>
+  </ul></div>
+  <div class="card r full"><h3>⚠️ 两条不存在（考点！）</h3><ul>
+    <li><b>就绪 → 阻塞</b>：没上 CPU 就不会请求 I/O，不存在</li>
+    <li><b>阻塞 → 运行</b>：必须先回就绪队列，不能直接上 CPU，不存在</li>
+  </ul></div>
+</div>
+
+<div class="memo">
+  <b>保命口诀</b>：<b>运行</b> 能往「就绪（时间片到）」和「阻塞（请求I/O）」走；<b>就绪</b> 只能往「运行」走；<b>阻塞</b> 只能往「就绪」走。<br>
+  只进不出的方向记住：<b>阻塞的人，永远没资格直接上 CPU。</b>
+</div>
+
+<script>
+const POS = { run:[400,90], rd:[170,300], blk:[630,300] };
+const NODE = { run:'node-run', rd:'node-rd', blk:'node-blk' };
+
+let at = 'rd';
+function light(edgeId, on){
+  const e = document.getElementById(edgeId);
+  const l = document.getElementById('lbl-'+edgeId.slice(-1));
+  if(e) e.classList.toggle('on', on);
+  if(l) l.classList.toggle('on', on);
+}
+function hot(state, on){
+  document.getElementById(NODE[state]).classList.toggle('hot', on);
+}
+function clearEdges(){ ['a','b','c','d'].forEach(x=>light('arr-'+x,false)); }
+
+function go(from, to, edge, title, html){
+  clearEdges();
+  light('arr-'+edge, true);
+  hot(from, true); hot(to, true);
+  const [x,y] = POS[to];
+  document.getElementById('token').setAttribute('transform', `translate(${x},${y})`);
+  setTimeout(()=>{ hot(from,false); }, 700);
+  at = to;
+  const box = document.getElementById('descBox');
+  box.classList.remove('bad');
+  document.getElementById('descT').innerHTML = '✓ ' + title;
+  document.getElementById('descD').innerHTML = html;
+}
+function bad(title, html){
+  clearEdges();
+  const box = document.getElementById('descBox');
+  box.classList.add('bad');
+  document.getElementById('descT').innerHTML = '✗ ' + title;
+  document.getElementById('descD').innerHTML = html;
+}
+function reset(){
+  clearEdges();
+  hot('run',false); hot('rd',false); hot('blk',false);
+  const [x,y] = POS.rd;
+  document.getElementById('token').setAttribute('transform', `translate(${x},${y})`);
+  at = 'rd';
+  const box = document.getElementById('descBox');
+  box.classList.remove('bad');
+  document.getElementById('descT').textContent = '进程现在停在「就绪」';
+  document.getElementById('descD').innerHTML = '就绪 = 万事俱备、只欠 CPU。点上面的按钮，走一条合法的转换试试。';
+}
+</script>
+</body>
+</html>
