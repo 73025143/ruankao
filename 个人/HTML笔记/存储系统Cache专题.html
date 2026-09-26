@@ -155,22 +155,22 @@
 <div class="sub">软考 · 计算机组成原理 ｜ 1.2.2 存储系统 ｜ 一篇吃透：为什么 → 归属 → 公式 → 练习 → 映像 → 替换 → 磁盘 → RAID</div>
 
 <div class="toc">
-  <b>目录</b>：
+  <b>目录</b>（<span style="color:#3fb950">✎ = 含例题</span>）：
   <a href="#s1">① 为什么需要 Cache</a> ·
   <a href="#s2">② Cache 算哪一层</a> ·
   <a href="#s3">③ 命中率与平均访问时间</a> ·
   <a href="#s4">④ 公式计算器</a> ·
   <a href="#s5">⑤ 访问序列模拟</a> ·
-  <a href="#s6">⑥ 练四道</a> ·
-  <a href="#s6b">⑥B 真题风格单选</a> ·
-  <a href="#s7">⑦ 地址映像</a> ·
-  <a href="#s8">⑧ 替换算法</a> ·
-  <a href="#s9">⑨ 写策略</a> ·
-  <a href="#s10">⑩ 多级 Cache</a> ·
-  <a href="#s11">⑪ 虚拟存储器</a> ·
-  <a href="#s12">⑫ 磁盘</a> ·
-  <a href="#s13">⑬ RAID</a> ·
-  <a href="#s14">⑭ SRAM/DRAM 与分类</a>
+  <a href="#s6">⑥ 练四道 ✎</a> ·
+  <a href="#s6b">⑥B 真题风格单选 ✎</a> ·
+  <a href="#s7">⑦ 地址映像 ✎</a> ·
+  <a href="#s8">⑧ 替换算法 ✎</a> ·
+  <a href="#s9">⑨ 写策略 ✎</a> ·
+  <a href="#s10">⑩ 多级 Cache ✎</a> ·
+  <a href="#s11">⑪ 虚拟存储器 ✎</a> ·
+  <a href="#s12">⑫ 磁盘 ✎</a> ·
+  <a href="#s13">⑬ RAID ✎</a> ·
+  <a href="#s14">⑭ SRAM/DRAM 与分类 ✎</a>
 </div>
 
 <!-- ==================== ① 为什么 ==================== -->
@@ -426,13 +426,20 @@ H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。
 </div>
 
 <table class="lt">
-<tr><th>考场套路</th><th>题干长这样</th><th>对应本页</th></tr>
-<tr class="hl"><td>直套公式算 t<sub>a</sub></td><td>给 t<sub>c</sub>/t<sub>m</sub>/H 求平均存取时间 + 加速比</td><td>③ 公式 · ⑥ 题1/题3</td></tr>
-<tr><td>反求命中率</td><td>给 t<sub>a</sub> 门槛求 H，<b>常带"访问失败后才访存"</b></td><td>⑥ 题2 · ⑥B 题2（模型B）</td></tr>
+<tr><th>考点</th><th>典型题干</th><th>例题位置</th></tr>
+<tr class="hl"><td>算 t<sub>a</sub> + 加速比</td><td>给 t<sub>c</sub>/t<sub>m</sub>/H 求平均存取时间</td><td>⑥ 题1/题3 · ⑥B 真题</td></tr>
+<tr><td>反求 H（模型B坑）</td><td>给 t<sub>a</sub> 门槛求 H，"访问失败后才访存"</td><td>⑥ 题2 · ⑥B 风格2</td></tr>
 <tr><td>纯概念判断</td><td>"以下关于 Cache 叙述正确的是"</td><td>② 归属 · ⑭ SRAM/DRAM</td></tr>
-<tr><td>磁盘转速/存取时间</td><td>"转速翻倍 → 哪个时间变"</td><td>⑫ 磁盘</td></tr>
+<tr><td>地址映像划分</td><td>给主存位数/行数/块大小，求 标记|行号|块内</td><td>⑦ 例题</td></tr>
+<tr><td>替换算法比较</td><td>给访问序列，算 FIFO/LRU 命中次数</td><td>⑧ 例题</td></tr>
+<tr><td>写策略辨析</td><td>写直达 vs 写回、脏位</td><td>⑨ 例题</td></tr>
+<tr><td>多级 Cache</td><td>L1/L2/L3 谁大谁快、引入目的</td><td>⑩ 例题</td></tr>
+<tr><td>虚拟存储器</td><td>目的 / Belady 异常 / 缺页中断类型</td><td>⑪ 例题</td></tr>
+<tr><td>磁盘转速</td><td>平均旋转延迟计算、转速翻倍谁变</td><td>⑫ 例题 · ⑥B 风格4</td></tr>
+<tr><td>RAID 判别</td><td>级别与特征对应、允许坏几块</td><td>⑬ 例题</td></tr>
+<tr><td>SRAM / DRAM</td><td>谁做 Cache / 谁要刷新</td><td>⑭ 例题</td></tr>
 </table>
-<div class="key g">🔑 结论：这块<b>年年考、题型雷同</b>。把"算 t<sub>a</sub> + 反求 H"两类计算吃透，再背死概念那几句，上午能稳拿 <b>1~2 分</b>。</div>
+<div class="key g">🔑 结论：这块<b>年年考、题型雷同</b>。①~⑭ 每节都配了对应例题，考前把"计算两类 + 概念几句"过一遍，上午能稳拿 <b>1~2 分</b>。</div>
 
 <!-- ==================== ⑦ 地址映像 ==================== -->
 <h2 class="sec" id="s7">⑦ 地址映像（主存地址怎么映射到 Cache）</h2>
@@ -443,6 +450,18 @@ H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。
 <tr><td><b>组相联映像</b></td><td><b>组用直接映像、组内块用全相联</b>（前两者折中）</td><td>性能与成本折中，现代 CPU 常用</td></tr>
 </table>
 <div class="key g">🔑 记法：<b>直接=只能回自己家；全相联=随便住；组相联=先定小区，小区里随便挑</b>。</div>
+<div class="qbox">
+  <div class="q"><b>【例题 · 直接映像地址划分】</b>某机主存地址 <b>20 位</b>，Cache 共 <b>64 行</b>，每块 <b>4 字节</b>，采用<b>直接映像</b>。则主存地址应划分为（　　）<br>
+  A. 标记 14 位 | 行号 4 位 | 块内 2 位　　　B. 标记 12 位 | 行号 6 位 | 块内 2 位<br>
+  C. 标记 10 位 | 行号 8 位 | 块内 2 位　　　D. 标记 12 位 | 行号 4 位 | 块内 4 位</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>B</b>。<br>
+    ① 块内地址 = log₂(4) = <b>2 位</b>（由块大小决定）<br>
+    ② 行号 = log₂(64) = <b>6 位</b>（由 Cache 行数决定）<br>
+    ③ 标记 = 20 − 6 − 2 = <b>12 位</b>（剩下的全是标记）<br>
+    🔑 三步口诀：<b>块内看块大小、行号看 Cache 行数、剩下全是标记</b>。全相联没有"行号"（块可去任意行，只有标记+块内）；组相联把"行号"换成"组号"。
+  </div></details>
+</div>
 
 <!-- ==================== ⑧ 替换算法 ==================== -->
 <h2 class="sec" id="s8">⑧ 替换算法（Cache 满了，踢谁出去）</h2>
@@ -454,6 +473,17 @@ H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。
 <tr><td>优化替换</td><td>先跑一遍程序统计后的最优选择</td><td>需要先验信息，理论最优</td></tr>
 </table>
 <div class="key o">💡 替换算法与"虚拟存储器缺页置换"用同一套名（OPT/LRU/FIFO），见⑪。</div>
+<div class="qbox">
+  <div class="q"><b>【例题 · LRU vs FIFO】</b>Cache 只能放 <b>2</b> 个页面，访问序列为 <b>1,2,1,3,1,2</b>（初始为空）。用 <b>FIFO</b> 和 <b>LRU</b> 分别命中几次（　　）<br>
+  A. FIFO 0 次、LRU 2 次　　　B. FIFO 2 次、LRU 2 次<br>
+  C. FIFO 2 次、LRU 0 次　　　D. FIFO 3 次、LRU 3 次</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>A（FIFO 0 命中；LRU 2 命中）</b>。两步画一下命中/未命中：<br>
+    <b>FIFO</b>（踢最早进来的）：1✗ → 2✗ → 1✗(踢1) → 3✗(踢2) → 1✗(踢3) → 2✗(踢1) → <b>命中 0</b>（序列刚好"转圈"把要用的挤走，抖动）<br>
+    <b>LRU</b>（踢最久没用的）：1✗ → 2✗ → 1<b>✓命中</b> → 3✗(踢2) → 1<b>✓命中</b> → 2✗(踢3) → <b>命中 2</b><br>
+    🔑 同一序列 LRU 通常不输 FIFO；<b>LRU 更接近 OPT，是常用算法</b>。记死：<b>FIFO 只看"谁先进来"，LRU 看"谁最久没用"</b>。
+  </div></details>
+</div>
 
 <!-- ==================== ⑨ 写策略 ==================== -->
 <h2 class="sec" id="s9">⑨ 写策略（改了 Cache 里的数据怎么办）</h2>
@@ -462,6 +492,19 @@ H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。
 <tr><td><b>写直达</b> Write Through</td><td>同时写 Cache 和主存</td><td>简单、一致性好 / 写操作慢</td></tr>
 <tr><td><b>写回</b> Write Back</td><td>只写 Cache，被替换出去时才写回主存</td><td>快 / 需要额外的"脏位"，一致性复杂</td></tr>
 </table>
+<div class="qbox">
+  <div class="q"><b>【例题 · 写策略辨析】</b>关于 Cache 的写策略，下列叙述<b>正确</b>的是（　　）<br>
+  A. 写直达（Write Through）只写 Cache 不写主存，速度最快<br>
+  B. 写回（Write Back）每次写都同时更新主存，保证一致<br>
+  C. 写回策略需为每块设置<b>脏位</b>，只在被替换时才写回主存<br>
+  D. 写直达策略只写 Cache，主存内容会长期与 Cache 不一致</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>C</b>。<br>
+    ❌ A、D 把两者说反了：<b>写直达 = 同时写 Cache + 主存</b>（一致性好，但写操作慢）<br>
+    ❌ B 是写直达的特征：<b>写回 = 只写 Cache</b>，靠"脏位"标记，被换出时才写回主存（快，但一致性复杂）<br>
+    🔑 一句话：<b>写直达图省心（时时同步、慢）；写回图省事（走时再补、快）</b>。
+  </div></details>
+</div>
 
 <!-- ==================== ⑩ 多级Cache ==================== -->
 <h2 class="sec" id="s10">⑩ 多级 Cache</h2>
@@ -469,6 +512,19 @@ H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。
 · L1：离 CPU 最近、<b>容量最小、速度最快</b>（常常再分 指令 Cache / 数据 Cache）
 · L2 / L3：容量更大、速度稍慢，用来提高<b>整体命中率</b>
 · 等级越高越靠近 CPU、越小越快 —— 别记反</div>
+<div class="qbox">
+  <div class="q"><b>【例题 · 多级 Cache】</b>关于多级 Cache，下列叙述<b>正确</b>的是（　　）<br>
+  A. L1 Cache 容量最大、离 CPU 最远<br>
+  B. L1 Cache 离 CPU 最近，容量最小、速度最快<br>
+  C. 引入 L2/L3 Cache 会降低整体命中率<br>
+  D. 越靠近 CPU 的 Cache 等级越高、容量越大</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>B</b>。<br>
+    ❌ A、D：越靠近 CPU → 等级越低（L1）、<b>容量越小、速度越快</b>；越往外（L2/L3）越大越慢<br>
+    ❌ C：多级 Cache 的目的就是<b>提高整体命中率</b>（L1 没命中还有 L2/L3 兜底）<br>
+    🔑 口诀：<b>越靠 CPU 越小越快，越往外越大越慢</b>；L1 常拆成指令 Cache / 数据 Cache（呼应 ⑥B 那道真题）。
+  </div></details>
+</div>
 
 <!-- ==================== ⑪ 虚拟存储器 ==================== -->
 <h2 class="sec" id="s11">⑪ 虚拟存储器（考"目的"和"置换算法"）</h2>
@@ -483,6 +539,21 @@ H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。
 <tr><td><b>FIFO</b> 先进先出</td><td>淘汰最早进来的页</td><td>可能"加内存反而缺页更多" → <b>Belady 异常（FIFO 独有）</b></td></tr>
 </table>
 <div class="key r">⚠️ 缺页属于 <b>程序性中断（内部异常）</b>，不是外部中断；缺页时由操作系统把该页从辅存调入主存。</div>
+<div class="qbox">
+  <div class="q"><b>【例题 · 虚拟存储器】</b>关于虚拟存储器，下列叙述<b>不正确</b>的是（　　）<br>
+  A. 设置虚拟存储器的主要目的是解决主存容量不足<br>
+  B. 缺页中断属于程序性中断（内部异常）<br>
+  C. 页面置换算法中，OPT 最优但无法实现，常作性能基准<br>
+  D. FIFO 不会出现"增加内存反而缺页增多"的现象</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>D（叙述错误，即选 D）</b>。<br>
+    ❌ D 说反了：<b>FIFO 恰恰是唯一会出现 Belady 异常（加内存反缺页更多）的算法</b><br>
+    A ✓ 虚拟存储治的是<b>容量</b>（Cache 治的是速度，别混）<br>
+    B ✓ 缺页由操作系统处理，属<b>程序性中断/内部异常</b>，不是外部中断<br>
+    C ✓ OPT 理论最优、无法实现，作基准；三者关系 <b>OPT &gt; LRU &gt; FIFO</b><br>
+    🔑 记死：<b>Belady 异常 = FIFO 专属</b>。
+  </div></details>
+</div>
 
 <!-- ==================== ⑫ 磁盘 ==================== -->
 <h2 class="sec" id="s12">⑫ 磁盘：容量与存取时间（大题小题都考）</h2>
@@ -508,6 +579,15 @@ H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。
     ③ 平均存取时间 = 8 + 5 + 0.025 ≈ <b>13.03ms</b>（寻道占大头）
   </div></details>
 </div>
+<div class="qbox">
+  <div class="q"><b>【例题 · 平均旋转延迟】</b>某硬盘转速 <b>7200 rpm</b>，则其平均旋转延迟约为（　　）<br>
+  A. 8.33ms　　B. 4.17ms　　C. 2.08ms　　D. 0.83ms</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>B</b>。转一圈 = 60/7200 s = <b>8.33ms</b>；平均旋转延迟 = 转<b>半圈</b> = 8.33/2 ≈ <b>4.17ms</b>。<br>
+    ⚠️ 陷阱 A：8.33ms 是<b>一整圈</b>的时间，不是平均值——平均要按<b>半圈</b>算。<br>
+    🔑 公式：平均旋转延迟 = 60/(2×转速rpm) = <b>30/转速</b>。
+  </div></details>
+</div>
 
 <!-- ==================== ⑬ RAID ==================== -->
 <h2 class="sec" id="s13">⑬ RAID（概念选择）</h2>
@@ -518,6 +598,17 @@ H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。
 <tr><td><b>RAID-5</b></td><td>数据 + <b>分布式校验</b>，无专用校验盘</td><td>权衡之选，允许坏 1 块</td></tr>
 <tr><td><b>RAID-6</b></td><td>两级冗余/双重校验</td><td>允许同时坏 <b>2</b> 块</td></tr>
 </table>
+<div class="qbox">
+  <div class="q"><b>【例题 · RAID 判别】</b>下列 RAID 级别与其特征对应，<b>错误</b>的是（　　）<br>
+  A. RAID-0：条带化、无冗余，速度快但无容错<br>
+  B. RAID-1：镜像，可靠性高，磁盘利用率 50%<br>
+  C. RAID-5：带分布式校验、无专用校验盘，允许坏 1 块<br>
+  D. RAID-6：只允许同时坏 1 块磁盘</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>D（错误，即选 D）</b>。RAID-6 是<b>双重校验，允许同时坏 2 块</b>磁盘。<br>
+    A/B/C 均正确。🔑 速记：<b>0 无冗余 · 1 镜像(50%) · 5 分布式校验坏 1 块 · 6 双校验坏 2 块</b>。
+  </div></details>
+</div>
 
 <!-- ==================== ⑭ SRAM/DRAM ==================== -->
 <h2 class="sec" id="s14">⑭ 存储器分类 &amp; SRAM / DRAM（爱考"谁做 Cache"）</h2>
@@ -536,6 +627,19 @@ H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。
 <tr><td>用途</td><td><b>Cache</b></td><td><b>主存</b></td></tr>
 </table>
 <div class="key g">🔑 只记一句：<b>SRAM 做 Cache（快而贵），DRAM 做主存（便宜要刷新）</b>。ROM 家族：固定 ROM → PROM（可编程一次）→ EPROM（紫外擦）→ EEPROM/Flash（电擦）。</div>
+<div class="qbox">
+  <div class="q"><b>【例题 · SRAM/DRAM】</b>下列关于 Cache 与主存的叙述，<b>正确</b>的是（　　）<br>
+  A. Cache 由 DRAM 构成，需要定时刷新<br>
+  B. 主存由 SRAM 构成，速度快、成本高<br>
+  C. Cache 由 SRAM 构成，速度快、不需要刷新<br>
+  D. 主存由 DRAM 构成，速度比 Cache 快</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>C</b>。<br>
+    ❌ A：Cache 用 <b>SRAM</b>（不需刷新）；需要刷新的是 DRAM<br>
+    ❌ B、D：主存用 <b>DRAM</b>（便宜、要刷新、比 Cache 慢）<br>
+    🔑 只背一句：<b>SRAM 做 Cache（快而贵，不刷新）；DRAM 做主存（便宜、要刷新）</b>。
+  </div></details>
+</div>
 
 <div class="memo" style="margin-bottom:40px">
   <b>本专题总收</b>：<br>
