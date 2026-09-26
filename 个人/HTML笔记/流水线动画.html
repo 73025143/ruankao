@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>流水线 动画 · 时空图 / 执行时间 / 吞吐率</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d1117; color:#e6edf3;
+    font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    padding:28px 36px; max-width:1120px; margin:0 auto;
+  }
+  h1 { font-size:22px; margin-bottom:6px; }
+  h1 .hl { color:#39c5cf; }
+  .sub { color:#8b949e; font-size:13px; margin-bottom:18px; }
+  h2.sec { font-size:17px; margin:32px 0 12px; padding-left:11px; border-left:4px solid #39c5cf; }
+  h2.sec:first-of-type { margin-top:20px; }
+  h2.sec .en { color:#6e7681; font-size:12px; font-weight:normal; margin-left:8px; }
+  p { font-size:14px; line-height:1.95; color:#c9d1d9; margin:8px 0; }
+  p b { color:#e6edf3; }
+  code { background:#0d1117; border:1px solid #30363d; border-radius:4px; padding:1px 6px; color:#79c0ff; font-family:Menlo,monospace; font-size:12.5px; }
+  .key { background:#39c5cf1a; border-left:3px solid #39c5cf; border-radius:6px; padding:10px 14px; margin:12px 0; font-size:14px; line-height:1.85; }
+  .key.r { background:#f851491a; border-left-color:#f85149; }
+  .key.o { background:#ffa6571a; border-left-color:#ffa657; }
+  .key.g { background:#3fb9501a; border-left-color:#3fb950; }
+  .annot { font-family:Menlo,Consolas,monospace; font-size:14px; line-height:2; color:#c9d1d9;
+    background:#161b22; border:1px solid #30363d; border-radius:10px; padding:14px 18px; margin:12px 0;
+    white-space:pre; overflow-x:auto; }
+  .annot .m { color:#79c0ff; } .annot .e { color:#ffa657; } .annot .g { color:#3fb950; }
+  .annot .r { color:#f85149; } .annot .d { color:#6e7681; } .annot .p { color:#bc8cff; }
+
+  /* ---- 静态时空图网格（保证对齐） ---- */
+  .sgrid { display:inline-block; margin:8px 0; white-space:normal; }
+  .sg-row { display:flex; align-items:center; height:30px; }
+  .sg-row .lb { width:86px; flex:none; font-size:12.5px; font-weight:bold; color:#e6edf3; }
+  .sg-row.ax .lb { color:#6e7681; font-weight:normal; }
+  .sg-c { width:52px; flex:none; height:26px; margin-right:2px; border-radius:5px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:Menlo,monospace; font-size:12.5px; }
+  .sg-c.e { background:#1f6feb33; color:#79c0ff; border:1px solid #1f6feb55; }
+  .sg-c.w { background:#db6d2833; color:#ffa657; border:1px solid #db6d2855; }
+  .sg-c.p { background:#a371f733; color:#bc8cff; border:1px solid #a371f755; }
+  .sg-c.g { background:#2ea04333; color:#7ee787; border:1px solid #2ea04355; }
+  .sg-c.s { background:#db61a233; color:#f778ba; border:1px solid #db61a255; }
+  .sg-c.n { border:1px dashed #30363d; color:#6e7681; }
+  .sg-c.axc { border:none; background:none; color:#6e7681; height:20px; }
+  .sg-bar { display:flex; }
+  .sg-bar .lb { width:86px; flex:none; }
+  .sg-cap { font-size:12px; color:#8b949e; margin-top:4px; }
+  table.lt { border-collapse:collapse; font-size:12.5px; margin:12px 0; width:100%; }
+  table.lt th,table.lt td { border:1px solid #30363d; padding:7px 10px; text-align:left; }
+  table.lt th { background:#161b22; color:#8b949e; font-weight:normal; }
+  table.lt td { color:#c9d1d9; }
+  table.lt td b { color:#79c0ff; }
+  .qbox { background:#161b22; border:1px dashed #39c5cf66; border-radius:10px; padding:12px 16px; margin:14px 0; }
+  .qbox .q { font-size:13.5px; line-height:1.9; color:#c9d1d9; }
+  .qbox .q b { color:#39c5cf; }
+  .qbox summary { cursor:pointer; font-size:13px; color:#39c5cf; margin-top:8px; outline:none; }
+  .qbox summary:hover { text-decoration:underline; }
+  .qbox .ans { margin-top:8px; padding-top:8px; border-top:1px dashed #30363d; font-size:13px; line-height:1.9; color:#8b949e; }
+  .qbox .ans b { color:#3fb950; }
+
+  .ctrl { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .ctrl .tag { font-size:12px; color:#8b949e; }
+  input.num { background:#0d1117; border:1px solid #30363d; border-radius:7px; color:#79c0ff;
+    font-family:Menlo,monospace; font-size:15px; padding:7px 11px; width:80px; text-align:center; }
+  input.num:focus { outline:none; border-color:#39c5cf; }
+  button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:8px; padding:7px 14px;
+    font-size:13px; cursor:pointer; transition:all .2s; }
+  button:hover { background:#30363d; border-color:#8b949e; }
+  button.primary { background:#238636; border-color:#2ea043; font-weight:bold; }
+  button.primary:hover { background:#2ea043; }
+
+  .stage { background:#0f151d; border:1px solid #30363d; border-radius:12px; padding:18px 20px; margin:14px 0; }
+  .space { overflow-x:auto; padding-bottom:8px; }
+  .cells-row2 { display:flex; gap:0; }
+  .lblcol { width:78px; flex:none; }
+  .lblcol .lb { height:30px; display:flex; align-items:center; font-size:12.5px; font-weight:bold; }
+  .grid { display:inline-block; }
+  .cellrow { display:flex; height:30px; }
+  .cellrow .lb { width:78px; flex:none; display:flex; align-items:center; font-size:12.5px; font-weight:bold; }
+  .cell { width:30px; height:30px; flex:none; border:1px solid #21262d; display:flex; align-items:center; justify-content:center;
+    font-family:Menlo,monospace; font-size:13px; color:#e6edf3; transition:all .2s; }
+  .cell.on { border-color:#30363d; }
+  .s1 { background:#1f6feb44; color:#79c0ff; }
+  .s2 { background:#a371f744; color:#bc8cff; }
+  .s3 { background:#db6d2844; color:#ffa657; }
+  .s4 { background:#2ea04344; color:#7ee787; }
+  .s5 { background:#db61a244; color:#f778ba; }
+  .s6 { background:#1f883d44; color:#56d364; }
+  .cell.done { opacity:.9; }
+  .axis-row { display:flex; height:20px; }
+  .axis-row .lb, .cellrow .lb { width:78px; flex:none; }
+  .ax { width:30px; flex:none; text-align:center; font-size:9px; color:#6e7681; font-family:Menlo,monospace; }
+  .stage.two .grid { margin-left:0; }
+
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; margin-top:12px; }
+  .card h3 { font-size:14.5px; margin-bottom:9px; }
+  .card ul,.card ol { margin-left:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .card b { color:#e6edf3; }
+  .stat { display:flex; gap:22px; flex-wrap:wrap; margin-top:10px; }
+  .stat .it { background:#161b22; border:1px solid #30363d; border-radius:9px; padding:10px 16px; }
+  .stat .it .l { font-size:11.5px; color:#8b949e; }
+  .stat .it .v { font-size:20px; font-weight:bold; font-family:Menlo,monospace; color:#39c5cf; }
+  .stat .it .v.warn { color:#ffa657; }
+  .stat .it .v.ok { color:#3fb950; }
+</style>
+</head>
+<body>
+
+<h1>指令流水线 <span class="hl">时空图 + 执行时间</span></h1>
+<div class="sub">软考 · 计算机组成原理 ｜ 1.2 ｜ 从"汽车装配线"讲起，用时空图算时间</div>
+
+<!-- 直觉 -->
+<h2 class="sec">① 先讲个生活例子：汽车装配线</h2>
+<p>造一辆汽车要 4 道工序：<b>装发动机 → 装轮子 → 喷漆 → 检测</b>。每道工序 1 小时。</p>
+<p><b>不用流水线（串行）</b>：一辆车从头做到尾，4 小时。造 3 辆车 → <b>4×3 = 12 小时</b>。</p>
+<div class="annot"><span class="d">串行：一辆做完才做下一辆（每格 1 小时，共 4×3=12 格）</span>
+<div class="sgrid">
+  <div class="sg-row"><div class="lb">时刻→</div><div class="sg-c axc">1</div><div class="sg-c axc">2</div><div class="sg-c axc">3</div><div class="sg-c axc">4</div><div class="sg-c axc">5</div><div class="sg-c axc">6</div><div class="sg-c axc">7</div><div class="sg-c axc">8</div><div class="sg-c axc">9</div><div class="sg-c axc">10</div><div class="sg-c axc">11</div><div class="sg-c axc">12</div></div>
+  <div class="sg-row"><div class="lb">车1</div><div class="sg-c e">发动机</div><div class="sg-c w">轮子</div><div class="sg-c p">喷漆</div><div class="sg-c g">检测</div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div></div>
+  <div class="sg-row"><div class="lb">车2</div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c e">发动机</div><div class="sg-c w">轮子</div><div class="sg-c p">喷漆</div><div class="sg-c g">检测</div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div></div>
+  <div class="sg-row"><div class="lb">车3</div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c e">发动机</div><div class="sg-c w">轮子</div><div class="sg-c p">喷漆</div><div class="sg-c g">检测</div></div>
+</div>
+<div class="sg-cap">共 12 小时（4×3）</div></div>
+<p><b>用流水线</b>：每道工序各配一个工人，车1 做完"发动机"就去"轮子"，同时车2 开始"发动机"……</p>
+<div class="annot"><span class="d">流水线：工序重叠，人不停（每格 1 小时）</span>
+<div class="sgrid">
+  <div class="sg-row ax"><div class="lb">时刻→</div><div class="sg-c axc">1</div><div class="sg-c axc">2</div><div class="sg-c axc">3</div><div class="sg-c axc">4</div><div class="sg-c axc">5</div><div class="sg-c axc">6</div></div>
+  <div class="sg-row"><div class="lb">发动机</div><div class="sg-c e">车1</div><div class="sg-c e">车2</div><div class="sg-c e">车3</div></div>
+  <div class="sg-row"><div class="lb">轮子</div><div class="sg-c n"></div><div class="sg-c w">车1</div><div class="sg-c w">车2</div><div class="sg-c w">车3</div></div>
+  <div class="sg-row"><div class="lb">喷漆</div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c p">车1</div><div class="sg-c p">车2</div><div class="sg-c p">车3</div></div>
+  <div class="sg-row"><div class="lb">检测</div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c g">车1</div><div class="sg-c g">车2</div><div class="sg-c g">车3</div></div>
+</div>
+<div class="sg-cap">6 小时 —— 只有开头"填线"的 3 格是浪费的，后面每格都出一辆车（<span style="color:#3fb950">比串行 12 小时快一倍</span>）</div></div>
+<div class="key g">🔑 流水线的思想：<b>把一件事拆成多道工序，让不同的事在不同工序上"重叠"进行</b>，机器一刻不停。指令流水线，就是把"执行一条指令"拆成几段，让多条指令重叠跑。</div>
+
+<!-- 术语 -->
+<h2 class="sec">② 三个术语，先认全</h2>
+<table class="lt">
+<tr><th>术语</th><th>含义</th><th>装配线类比</th></tr>
+<tr><td><b>段（级）</b> k</td><td>一条指令被拆成几道工序</td><td>4 道工序 → k=4</td></tr>
+<tr><td><b>段周期</b> Δt</td><td>每道工序耗的时间</td><td>每道 1 小时</td></tr>
+<tr><td><b>指令条数</b> n</td><td>要处理多少条指令</td><td>造 3 辆车 → n=3</td></tr>
+</table>
+<p>指令流水线常见拆法（经典 5 段）：<b>取指 → 译码 → 执行 → 访存 → 写回</b>。</p>
+
+<!-- 时空图 -->
+<h2 class="sec">③ 核心：时空图 + 公式（最常考）</h2>
+<p><b>为什么流水线总时间 = (k + n − 1) × Δt？</b> 看时空图就懂了：</p>
+<div class="annot"><span class="d">k=4 段，n=5 条指令（每格 = 1 个 Δt）</span>
+<div class="sgrid">
+  <div class="sg-row ax"><div class="lb">时刻→</div><div class="sg-c axc">1</div><div class="sg-c axc">2</div><div class="sg-c axc">3</div><div class="sg-c axc">4</div><div class="sg-c axc">5</div><div class="sg-c axc">6</div><div class="sg-c axc">7</div><div class="sg-c axc">8</div></div>
+  <div class="sg-row"><div class="lb">取指</div><div class="sg-c e">I1</div><div class="sg-c e">I2</div><div class="sg-c e">I3</div><div class="sg-c e">I4</div><div class="sg-c e">I5</div></div>
+  <div class="sg-row"><div class="lb">译码</div><div class="sg-c n"></div><div class="sg-c p">I1</div><div class="sg-c p">I2</div><div class="sg-c p">I3</div><div class="sg-c p">I4</div><div class="sg-c p">I5</div></div>
+  <div class="sg-row"><div class="lb">执行</div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c w">I1</div><div class="sg-c w">I2</div><div class="sg-c w">I3</div><div class="sg-c w">I4</div><div class="sg-c w">I5</div></div>
+  <div class="sg-row"><div class="lb">写回</div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c n"></div><div class="sg-c g">I1</div><div class="sg-c g">I2</div><div class="sg-c g">I3</div><div class="sg-c g">I4</div><div class="sg-c g">I5</div></div>
+</div>
+<div class="sg-cap">数一数：总共 <b style="color:#39c5cf">8 格</b>（对角线排布，斜着看每条指令 I1→I5 各占 4 格）</div></div>
+<p>数一数：<b>总共 8 格</b>。为什么是 8？</p>
+<div class="key">🔑 <b>拆成两段看：</b>
+<br>· <b>前 k 格</b>（1~4）：第一条指令 I1 走完 4 段，这一段是"填满流水线"（前面是空的）
+<br>· <b>后 n−1 格</b>（5~8）：流水线满了之后，每过 1 格就流出 1 条指令，共 4 条
+<br>· 合计 = k + (n−1) = 4 + 4 = <b>8 格</b></div>
+<div class="key g">🔑 <b>流水线执行时间公式：</b>
+<br><code>总时间 = (k + n − 1) × Δt</code>
+<br>（k=段数，n=指令数，Δt=段周期。前提：各段耗时相等）</div>
+<div class="key o">🔑 <b>对比串行时间</b>：不用流水线 = <code>k × n × Δt</code>。两条公式只差一点，别混！<br>
+本页例子：流水线 (4+5−1)×Δt=8Δt；串行 4×5×Δt=20Δt。</div>
+
+<!-- 交互时空图 -->
+<h2 class="sec">④ 自己调参数，看时空图变化</h2>
+<div class="stage">
+  <div class="ctrl">
+    <span class="tag">段数 k：</span><input class="num" id="inK" value="4" type="number" min="2" max="6">
+    <span class="tag">指令数 n：</span><input class="num" id="inN" value="5" type="number" min="1" max="10">
+    <button class="primary" onclick="draw()">重新画</button>
+    <span class="tag" style="color:#f85149" id="errTxt"></span>
+  </div>
+  <div class="space"><div id="spaceOut"></div></div>
+  <div class="stat" id="statOut"></div>
+  <div id="calcOut" style="margin-top:12px"></div>
+</div>
+
+<!-- 吞吐率 -->
+<h2 class="sec">⑤ 吞吐率 &amp; 建立时间</h2>
+<p><b>吞吐率（Throughput，TP）</b>：单位时间流出多少结果。装配线 = 每小时出几辆车；指令流水线 = 每秒执行几条指令。</p>
+<div class="key g">🔑 <b>吞吐率公式：</b><code>TP = n / 总时间 = n / ((k+n−1) × Δt)</code></div>
+
+<p>拿 k=4、n=5、Δt=1ns 实算一遍：</p>
+<div class="annot"><span class="d">第一步：先算总时间（用 ③ 的公式）</span>
+总时间 = (k+n−1)×Δt = (4+5−1)×1ns = <span class="m">8ns</span>
+
+<span class="d">第二步：套吞吐率</span>
+TP = n / 总时间 = 5 条 ÷ 8ns = <span class="g">0.625 条/ns</span>
+
+<span class="d">读法：平均每 1ns 吐 0.625 条 → 平均 1.6ns 才吐出一条
+换算：0.625 条/ns = 6.25 亿条/秒</span></div>
+
+<p><b>关键问题：指令越多，吞吐率越高吗？</b> 看这组数（都固定 k=4、每段 1ns）：</p>
+<table class="lt">
+<tr><th>指令数 n</th><th>总时间 = (4+n−1) ns</th><th>吞吐率 TP = n ÷ 总时间</th></tr>
+<tr><td>5</td><td>8 ns</td><td>0.625 条/ns</td></tr>
+<tr><td>100</td><td>103 ns</td><td>0.971 条/ns</td></tr>
+<tr><td>1000</td><td>1003 ns</td><td>0.997 条/ns</td></tr>
+<tr class="hl"><td>∞（无限多）</td><td>—</td><td><b>→ 1 条/ns（上限）</b></td></tr>
+</table>
+<div class="key">🔑 <b>为什么会这样？</b> 开头"填线"那 k=4 格是白花的——里面一条指令都没吐出来。n 越大，这 4 格摊到每条指令上就越薄，TP 就越逼近上限。</div>
+<div class="key g">🔑 <b>最大吞吐率：</b><code>TP<sub>max</sub> = 1 / Δt</code>（各段相等时）<br>
+<b>直觉（比公式重要）</b>：流水线一旦装满，<b>每过 1 个 Δt 就吐出一条</b>——所以最多就是"一个 Δt 一条"，物理上不可能更多。<br>
+各段耗时<u>不一样</u>时：<code>TP<sub>max</sub> = 1 / max{Δt₁, Δt₂, …, Δtₖ}</code>（节奏由最慢那段定——装配线上最慢的工人拖累全线）</div>
+
+<p><b>追问：上面表格里 Δt 我取了 1ns，那 Δt 换成别的值呢？</b> —— <b>换的只是"比例尺"，不是"形状"。</b></p>
+<div class="key o">🔑 把 Δt 从公式里<b>拎出来</b>看：<br>
+<code>TP = n / ((k+n−1)·Δt) = <b>(1/Δt)</b> × <b>n/(k+n−1)</b></code><br>
+前一半 <code>1/Δt</code> 就是 TP<sub>max</sub>（天花板的高度）；后一半 <code>n/(k+n−1)</code> 是"离天花板还有多远"，<b>跟 Δt 完全无关</b>。</div>
+<table class="lt">
+<tr><th>Δt（k=4, n=5）</th><th>总时间</th><th>TP</th><th>TP<sub>max</sub> 天花板</th><th>TP 占天花板的百分比</th></tr>
+<tr><td>0.5 ns</td><td>4 ns</td><td>1.25 条/ns</td><td>2 条/ns</td><td>62.5%</td></tr>
+<tr class="hl"><td>1 ns</td><td>8 ns</td><td>0.625 条/ns</td><td>1 条/ns</td><td>62.5%</td></tr>
+<tr><td>2 ns</td><td>16 ns</td><td>0.3125 条/ns</td><td>0.5 条/ns</td><td>62.5%</td></tr>
+<tr><td>10 ns</td><td>80 ns</td><td>0.0625 条/ns</td><td>0.1 条/ns</td><td>62.5%</td></tr>
+</table>
+<div class="key g">🔑 铺开看：TP 的绝对值全变了（1.25 / 0.625 / 0.31 / 0.06），<b>但最右边那列 62.5% 一动不动</b>。<br>
+那列 = <code>n/(k+n−1)</code> —— 它就是我们 ⑤′ 要讲的 <b>效率 E</b>。所以可以提前写成一个式子：<br>
+<code>TP = E × TP<sub>max</sub></code>：Δt 决定天花板多高，E 决定你贴着天花板多近。</div>
+
+<p><b>那 <code>n/(k+n−1)</code> 这个数到底代表什么？</b>——它是同一个东西的<b>四个侧面</b>，四个算出来一模一样：</p>
+<table class="lt">
+<tr><th>读法</th><th>怎么理解</th><th>k=4, n=5 时</th></tr>
+<tr><td><b>① 时空图面积比</b></td><td>「有活干的格子 ÷ 总格子」= <code>(n×k) ÷ (k×(k+n−1))</code>，上下约掉 k → <code>n/(k+n−1)</code></td><td>20 ÷ 32 = <b>0.625</b></td></tr>
+<tr><td><b>② 时间轴产出比</b></td><td>时间轴 k+n−1 格里，<b>前 k−1 格白干</b>（填线），<b>后面 n 格每格产出一条</b> → n 格产出 ÷ 总格数</td><td>5 ÷ (3+5) = <b>0.625</b></td></tr>
+<tr><td><b>③ 吞吐率达成率</b></td><td><code>TP ÷ TP<sub>max</sub></code> = 实际吞吐 ÷ 天花板</td><td>0.625 ÷ 1 = <b>0.625</b></td></tr>
+<tr><td><b>④ 时间理想度</b></td><td>「理想用时 nΔt ÷ 实际用时 (k+n−1)Δt」，Δt 约掉</td><td>5 ÷ 8 = <b>0.625</b></td></tr>
+</table>
+<div class="key o">🔑 <b>为什么分子偏偏是 n？</b> 因为时间轴上"真正产出的格数"就是 <b>n</b>（n 条指令，每条占一格产出时刻）。分母 k+n−1 是总时间格数。所以这个比值 = <b>"没白花的格数占几成"</b>。</div>
+<div class="key g">🔑 <b>它就是效率 E</b>（⑤′ 详细讲）：<code>E = n/(k+n−1)</code>。两个极端一看就懂：<br>
+· <b>n=1</b>：E = 1/4 = 25% —— 只跑一条，流水线填了 4 格才出 1 条，浪费 3 格<br>
+· <b>n→∞</b>：E → 1 —— 填线那 k−1 格摊薄到可忽略，几乎 100% 利用率</div>
+<div class="key">💡 <b>看穿一件事</b>：k=4、n=5 时 E=0.625，往上表四个读法都一样。这正说明 <b>TP、E、S 三个指标是同一个"浪费了多少"的三种说法</b>——⑤′ 会把它们串成一张表。</div>
+<div class="key r">⚠️ <b>Δt 什么时候才真的影响结论？</b><br>
+· 要算<b>具体数值和单位</b>时（1ns 还是 10ns，差 10 倍）；<br>
+· <b>各段不等</b>时：<code>TP<sub>max</sub> = 1/max{Δt₁…Δtₖ}</code>，得先挑出最慢那段；<br>
+· 但 <b>加速比 S = knΔt ÷ ((k+n−1)Δt)</b> 里的 Δt <b>约掉了</b> → <b>S 与 Δt 无关</b>。所以"把每段都缩到一半"只是整体变快，<b>加速比一点也不涨</b>。（这也是 ⑤′ 的内容）</div>
+<div class="key">💡 所以 ④ 那个交互图故意把单位写成 <b>条/Δt</b> 而不是 条/ns —— 它算的是"以 Δt 为单位"的结果，<b>任何 Δt 都通用</b>。要换成 条/ns，除以 Δt 的 ns 数即可。</div>
+
+<p><b>建立时间（填满流水线所需的时间）</b>：从"开始"到<b>第一条指令产出</b>的那段时间。</p>
+<div class="key g">🔑 <b>两个等价说法（考试两个都爱用）：</b><br>
+· 第一条指令走完全部 k 段的时间<br>
+· 流水线从空到"填满"（k 个段全忙）所需的时间<br>
+<code>建立时间 = k × Δt</code>（各段相等时；各段不等时 = Δt₁+Δt₂+…+Δtₖ，见 ⑤″）</div>
+
+<p><b>逐时刻看清楚它到底是什么（k=4、n=5、每段 1ns）：</b></p>
+<table class="lt">
+<tr><th>时刻</th><th>取指</th><th>译码</th><th>执行</th><th>写回</th><th>本刻产出</th><th>在跑条数</th></tr>
+<tr><td>1</td><td>I1</td><td>—</td><td>—</td><td>—</td><td>—</td><td>1</td></tr>
+<tr><td>2</td><td>I2</td><td>I1</td><td>—</td><td>—</td><td>—</td><td>2</td></tr>
+<tr><td>3</td><td>I3</td><td>I2</td><td>I1</td><td>—</td><td>—</td><td>3</td></tr>
+<tr class="hl"><td><b>4</b></td><td>I4</td><td>I3</td><td>I2</td><td>I1</td><td><b>I1 ← 第一条产出</b></td><td><b>4（填满）</b></td></tr>
+<tr><td>5</td><td>I5</td><td>I4</td><td>I3</td><td>I2</td><td>I2</td><td>4</td></tr>
+<tr><td>6</td><td>—</td><td>I5</td><td>I4</td><td>I3</td><td>I3</td><td>3</td></tr>
+<tr><td>7</td><td>—</td><td>—</td><td>I5</td><td>I4</td><td>I4</td><td>2</td></tr>
+<tr><td>8</td><td>—</td><td>—</td><td>—</td><td>I5</td><td>I5</td><td>1</td></tr>
+</table>
+<div class="annot"><span class="d">看"在跑条数"这列：1 → 2 → 3 → 4（填满）→ 4 → 3 → 2 → 1</span>
+  <span class="m">上坡 = 建立时间（填线）</span>，<span class="g">平顶 = 满负荷产出</span>，<span class="e">下坡 = 排空</span>
+
+<span class="d">关键：前 k−1 = 3 个 Δt 里，"本刻产出"一直是 0 —— 一条都没吐出来</span>
+      第一个产出出现在 <span class="g">t=4</span>，那一刻恰好 <b>4 个段全忙（填满）</b>
+      所以：<b>建立时间 = 4Δt = k×Δt</b>
+
+<span class="d">注意：不是"全程只有 1 条在跑"！是 1→2→3→4 逐渐填满的</span>
+      但前面那 3 个 Δt <b>零产出</b> —— 这才是真正白花的部分</div>
+<div class="key r">⚠️ <b>修正一个常见误解</b>：建立时间≠"第一条指令独占机器"。它是"从零到第一个成果出来"的<b>等待期</b>，期间里面同时跑的指令从 1 条逐渐涨到 k 条，但<b>一条都没产出</b>。</div>
+<div class="key g">🔑 <b>于是总时间一眼看懂：</b><br>
+<code>总时间 = 建立时间 + (n−1)×Δt = k×Δt + (n−1)×Δt = (k+n−1)Δt</code><br>
+跑完 4Δt 才吐出第 1 条，之后每过 1Δt 吐一条，还要吐 n−1 = 4 条 → 再花 4Δt，共 8Δt ✓</div>
+<div class="key o">🔑 <b>考题怎么说"建立时间"（换个说法别不认）：</b><br>
+· "第 1 条指令执行完毕所需的时间" 　· "流水线填满所需的时间"<br>
+· "第一条结果的产出时刻" 　· "流水线的启动开销 / 填充时间"<br>
+<b>全都是同一个东西：k × Δt（各段相等时）。</b></div>
+<div class="key g">🔑 <b>把总时间拆成两半（这个关系特别好用，能互相验算）：</b><br>
+<code>总时间 = 建立时间 + (n−1) × Δt</code><br>
+因为 (k+n−1) 正好 = k + (n−1)：<b>前面 k 格在填线</b>（建立时间），<b>后面每格吐一条</b>，共 n−1 条。<br>
+验算：4 + (5−1) = 4 + 4 = <b>8ns</b> ✓（和 (k+n−1)×Δt 的结果一模一样）</div>
+<div class="key r">⚠️ <b>别把两个"时间"搞混（易错点，⑦ 还会再点一次）：</b><br>
+· <b>建立时间</b> = <code>k × Δt</code> —— 只跟 k 有关，<b>跟 n 无关</b><br>
+· <b>总时间</b> = <code>(k+n−1) × Δt</code> —— 跟 k、n 都有关</div>
+
+<div class="qbox">
+  <div class="q"><b>随手算一道：</b>某流水线共 <b>8 段</b>，每段 <b>2ns</b>，连续执行 <b>200 条</b>指令。求 ① 总时间 ② 吞吐率 TP ③ 最大吞吐率 TP<sub>max</sub> ④ 建立时间。</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    ① 总时间 = (k+n−1)×Δt = (8+200−1)×2 = 207×2 = <b>414ns</b><br>
+    ② TP = 200 ÷ 414 ≈ <b>0.483 条/ns</b>（比上限小一点，因为开头填线亏了）<br>
+    ③ TP<sub>max</sub> = 1/Δt = 1/2ns = <b>0.5 条/ns</b><br>
+    ④ 建立时间 = k×Δt = 8×2 = <b>16ns</b><br>
+    <span class="d">验算：16 + (200−1)×2 = 16 + 398 = 414ns ✓</span>
+  </div></details>
+</div>
+
+<!-- 加速比 & 效率 -->
+<h2 class="sec">⑤′ 加速比 & 效率（也是必考）</h2>
+<p><b>加速比 S</b>：不用流水线的时间 ÷ 用流水线的时间，衡量"快了多少倍"。</p>
+<div class="annot"><span class="d">还是 k=4, n=5 的例子</span>
+串行时间   = k×n×Δt   = 4×5×Δt  = 20Δt
+流水线时间 = (k+n−1)×Δt = 8×Δt    =  8Δt
+
+加速比 S = 20Δt / 8Δt = 20/8 = <span class="g">2.5 倍</span></div>
+<div class="key g">🔑 <b>加速比公式：</b><code>S = kn / (k+n−1)</code><br>
+当 n 很大（指令很多）时，S → <b>k</b>（最多加速"段数"倍，不可能更多）。</div>
+<p><b>效率 E</b>：时空图里"有活干的格子"占"全部格子"的比例（设备利用率）。</p>
+<div class="annot"><span class="d">看时空图：总格子 = 4段 × 8格 = 32 格，其中有指令的 = 5条 × 4段 = 20 格</span>
+     ┌────┬────────────────────────┐
+     │取指│ I1  I2  I3  I4  I5      │ 5 个有活
+     │译码│     I1  I2  I3  I4  I5  │ 5 个有活
+     │执行│         I1  ...  I5     │ 5 个有活
+     │写回│             I1  ...  I5 │ 5 个有活
+     └────┴────────────────────────┘
+      总共 4×8=32 格，有活 20 格 → 空闲 12 格（左下角三角形浪费）
+
+效率 E = 20/32 = <span class="g">0.625（62.5%）</span></div>
+<div class="key g">🔑 <b>效率公式：</b><code>E = n / (k+n−1)</code>（约分后正好是 n/(k+n−1)）<br>
+n 越大 → 填线浪费占比越小 → E 越接近 <b>1</b>（100%）。</div>
+
+<div class="key o">🔑 <b>三个指标串成一根绳（看穿它们是一回事）：</b><br>
+<code>S ÷ S<sub>max</sub> = (kn/(k+n−1)) ÷ k = n/(k+n−1) = E</code><br>
+也就是 <code><b>E = S / S<sub>max</sub></b></code>：实际加速比 ÷ 理论最大加速比 = 效率。<br>
+同一个"浪费了多少"，从三个角度说：<br>
+· 吞吐率角度：<code>TP/TP<sub>max</sub> = E</code>　· 时空图角度：<code>有活格子/总格子 = E</code>　· 加速比角度：<code>S/S<sub>max</sub> = E</code></div>
+
+<p><b>完整算一遍（k=5、n=50、Δt=3ns）：</b></p>
+<div class="annot">串行时间   = k×n×Δt = 5×50×3 = <span class="m">750ns</span>
+流水线时间 = (k+n−1)×Δt = 54×3 = <span class="m">162ns</span>
+
+加速比 S = 750 / 162 = <span class="g">4.63 倍</span>   （公式：kn/(k+n−1) = 250/54 = 4.63 ✓）
+理论最大 S<sub>max</sub> = k = <span class="m">5 倍</span>（n→∞ 才够得着）
+效率 E = n/(k+n−1) = 50/54 = <span class="g">0.9259（92.59%）</span>
+
+<span class="d">一致性验证：S/S_max = 4.63/5 = 0.9259 = E ✓</span></div>
+
+<div class="key">🔑 <b>效率为什么能直接约成 n/(k+n−1)？</b> 面积法：<code>E = (n×k) / (k×(k+n−1))</code>，上下同时约掉 <b>k</b>（段数）→ <code>n/(k+n−1)</code>。所以公式里那个 k 是"被约掉的"，别以为它凭空不见了。</div>
+
+<div class="qbox">
+  <div class="q"><b>练一道：</b>某流水线 <b>4 段</b>、每段 <b>2ns</b>、执行 <b>96 条</b>指令。求 ① 串行时间 ② 流水线总时间 ③ 加速比 S ④ 效率 E ⑤ 验证 S/S<sub>max</sub> 是否等于 E。</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    ① 串行 = k×n×Δt = 4×96×2 = <b>768ns</b><br>
+    ② 流水线 = (k+n−1)×Δt = (4+96−1)×2 = 99×2 = <b>198ns</b><br>
+    ③ S = 768/198 = <b>3.879 倍</b>（公式验证：kn/(k+n−1) = 384/99 = 3.879 ✓）<br>
+    ④ E = n/(k+n−1) = 96/99 = <b>0.9697（96.97%）</b><br>
+    ⑤ S<sub>max</sub> = k = 4；S/S<sub>max</sub> = 3.879/4 = <b>0.9697 = E</b> ✓
+  </div></details>
+</div>
+
+<!-- 各段不等 -->
+<h2 class="sec">⑤″ 坑最多的变体：各段耗时不等</h2>
+<p>前面所有公式都默认"各段耗时相等"。考试爱出<b>各段不等</b>的，公式变成：</p>
+<div class="key r">🔑 <b>各段不等时：</b><code>总时间 = (Δt₁ + Δt₂ + … + Δtₖ) + (n−1) × max{Δt}</code></div>
+<p><b>为什么是这个形状？</b>拆开看：</p>
+<div class="annot">· 第一条指令：要老老实实走完全部段 → Δt₁+Δt₂+…+Δtₖ
+· 后面每条指令：流水线满载后，节奏由<b>最慢的段</b>决定
+  （快的段要等慢的段，就像装配线上最慢的工人拖累全线）
+  → 每条多花 max{Δt}，共 n−1 条 → (n−1)×max{Δt}</div>
+<p><b>完整例题</b>（典型真题样式）：</p>
+<div class="annot">某指令流水线共 4 段，各段耗时 2ns、1ns、3ns、1ns，执行 100 条指令：
+
+① 先找最慢段：max{2,1,3,1} = 3ns
+② 第一条指令全程：2+1+3+1 = 7ns
+③ 后 99 条：99 × 3 = 297ns
+④ 总时间 = 7 + 297 = <span class="g">304ns</span>
+
+⑤ 若问吞吐率：TP = 100 / 304ns ≈ 0.33 条/ns
+   最大吞吐率 TPmax = 1/max{Δt} = 1/3ns ≈ 0.33 条/ns</div>
+<div class="key o">⚠️ <b>千万别直接套 (k+n−1)×Δt</b>——那个公式只在各段相等时成立。各段不等时用"总和 + (n−1)×最慢"。</div>
+
+<p><b>一眼识别：两种题用哪个公式</b></p>
+<table class="lt">
+<tr><th>题干长什么样</th><th>用什么</th><th>总时间</th></tr>
+<tr><td>"每段耗时均为 Δt"／只给一个时间</td><td>各段<b>相等</b></td><td><code>(k+n−1) × Δt</code></td></tr>
+<tr class="hl"><td>"各段耗时<b>分别为</b> 2ns、1ns、3ns…"／给了好几个数</td><td>各段<b>不等</b></td><td><code>(Δt₁+…+Δtₖ) + (n−1)×max{Δt}</code></td></tr>
+</table>
+<div class="key">🔑 <b>识别口诀：数题干里有几个时间值。</b>只有一个 → 相等公式；给了一串 → 不等公式。<br>
+反过来说：各段不等时<b>根本不存在统一的 Δt</b>，所以 (k+n−1)×Δt 这个式子连"代什么值"都答不上来——本身就说明不能用。</div>
+
+<div class="key g">🔑 <b>为什么第二条单项是"最慢段"？——把最慢段当节拍器。</b><br>
+流水线是"接力赛"：每段干完才把活交给下一段。最慢那段（比如 3ns 的执行段）每次都让别人等它，
+所以整条线的<b>出厂节拍 = 最慢段 = max{Δt}</b>。快的段干完只能干等 → 快的段被浪费了。<br>
+这也解释了为什么 <code>TP<sub>max</sub> = 1/max{Δt}</code>（不是 1/平均Δt）。</div>
+
+<p><b>例题二（换一组数，含吞吐率/加速比）：</b></p>
+<div class="annot">某流水线 3 段，各段耗时 3ns、1ns、2ns，连续执行 50 条指令：
+
+① 总时间 = (3+1+2) + (50−1)×max{3,1,2}
+          = 6 + 49×3
+          = 6 + 147 = <span class="g">153ns</span>
+   <span class="d">（头 6ns 是第一条指令自己走完全程；之后每 3ns——被最慢的执行段卡着——才出一条）</span>
+
+② 串行时间 = n × ΣΔ = 50 × 6 = <span class="m">300ns</span>   <span class="d">（不用流水线时，每条都要走 3+1+2=6ns）</span>
+   加速比 S = 300/153 ≈ <span class="g">1.96 倍</span>
+
+③ 吞吐率 TP = 50 / 153ns ≈ <span class="g">0.327 条/ns</span>
+   最大吞吐率 TP<sub>max</sub> = 1/max{Δt} = 1/3ns ≈ <span class="m">0.333 条/ns</span>
+   <span class="d">验算：TP/TPmax = 0.327/0.333 ≈ 0.98（n=50 时已很贴近上限）</span></div>
+
+<div class="qbox">
+  <div class="q"><b>练一道（各段不等 · 单选风格）：</b>某指令流水线由 4 段组成，各段所需时间分别为 <b>2ns、1ns、3ns、1ns</b>。连续执行 <b>100</b> 条指令所需的执行时间是（　）。</div>
+  <div class="q" style="margin-top:6px">A. 304ns　　B. 309ns　　C. 700ns　　D. 800ns</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>选 A。</b>各段不等 → 用"总和 + (n−1)×最慢"：<br>
+    max{2,1,3,1} = 3ns；ΣΔ = 2+1+3+1 = 7ns<br>
+    总时间 = 7 + 99×3 = 7 + 297 = <b>304ns</b><br>
+    <span class="d">干扰项拆解：<br>
+    · B=309ns → 错用 (k+n−1)×3 = 103×3（把最慢段当成"统一 Δt"套旧公式）<br>
+    · C=700ns → 忘了流水线，当成串行：100×7<br>
+    · D=800ns → 用 4×100×2（乱取一段）</span>
+  </div></details>
+</div>
+
+<!-- 三种技术 -->
+<h2 class="sec">⑥ 进阶概念：超流水 / 超标量（RISC）</h2>
+<table class="lt">
+<tr><th>技术</th><th>做法</th><th>本质</th></tr>
+<tr><td><b>超流水线</b></td><td>把流水段分得更<u>细</u>、级数更多、主频更高</td><td><b>时间</b>换空间（CPI≈1）</td></tr>
+<tr><td><b>超标量</b></td><td>一个机器里装<u>多条</u>流水线，同时跑多条指令</td><td><b>空间</b>换时间（CPI更小）</td></tr>
+</table>
+<div class="key">🔑 记：<b>超流水 = 把段切更细（时间换空间）；超标量 = 多装几条流水线（空间换时间）</b>。</div>
+
+<!-- 三类相关 -->
+<h2 class="sec">⑥′ 影响流水线的三类"相关"（概念选择题）</h2>
+<p>流水线里多条指令同时跑，会互相"打架"。打不下去就叫<b>相关</b>，分三类：</p>
+<table class="lt">
+<tr><th>相关</th><th>什么冲突</th><th>例子</th><th>对策</th></tr>
+<tr><td><b>结构相关</b></td><td>多条指令抢<b>同一个部件</b></td><td>两条指令同时要访存</td><td>部件复制 / 分时</td></tr>
+<tr><td><b>数据相关</b></td><td>后一条要<b>等前一条的结果</b></td><td><code>ADD R1,R2,R3</code> 后面紧跟 <code>MOV R4,R1</code></td><td>旁路(转发) / 插入等待</td></tr>
+<tr><td><b>控制相关</b></td><td><b>转移指令</b>改 PC，预取的指令作废</td><td><code>JMP</code> / 条件分支</td><td>猜测法 / 延迟转移</td></tr>
+</table>
+<div class="key">🔑 记法：<b>结构抢部件、数据等结果、控制是跳转</b>。中断也会断流，但概率比转移低。</div>
+
+<!-- 陷阱 -->
+<h2 class="sec">⑦ 两个易错点</h2>
+<div class="key r">⚠️ <b>别把两个公式搞混：</b><br>
+· 流水线：<code>(k + n − 1) × Δt</code><br>
+· 串行（非流水）：<code>k × n × Δt</code><br>
+口诀：流水线多算了"重叠"，所以项数从 kn 变成 k+n−1。</div>
+<div class="key r">⚠️ <b>各段耗时不等怎么办？</b>用 <code>(Δt₁+…+Δtₖ) + (n−1)×max{Δt}</code>（见 ⑤″ 的例题），吞吐率取最慢段倒数。</div>
+<div class="key r">⚠️ <b>第三个坑：把"建立时间"和"效率 E"搞串（实测最容易翻车的一处）。</b><br>
+· <b>建立时间</b> = <code>k × Δt</code> → 单位 <b>ns</b>，是"时间"<br>
+· <b>效率 E</b> = <code>n/(k+n−1)</code> → <b>无量纲</b>，是"比值/百分比"<br>
+两者长得都像"k 和 n 的组合"，但一个带时间、一个是纯数。<br>
+<b>🔑 自检口诀：写完答案先看单位。</b>问时间 → 必须带 ns；问比值 → 必须是个小数或百分比。<br>
+示例（k=5, n=50, Δt=3ns）：建立时间 = 5×3 = <b>15ns</b>；E = 50/54 = <b>0.9259</b>。而 <code>nΔt/总时间 = 150/162 = 0.9259</code> 是 E，<b>不是</b>建立时间。</div>
+<div class="key g">🔑 <b>最后收个总：Δt 和 E 是两个独立维度，别混着拧。</b><br>
+· 想<b>绝对速度</b>变快 → 减小 Δt（提主频 / 把段切细）→ TP 涨，但 <b>E、S 都不变</b><br>
+· 想<b>利用率</b>变高 → 加大 n（多喂指令）→ E 涨，但 <b>Δt、TP<sub>max</sub> 都不变</b><br>
+· 验证：Δt 减半（3→1.5ns）后，总时间 162→81ns、TP 翻倍，而 <b>E 仍是 92.59%、S 仍是 4.63</b>。</div>
+
+<!-- 练习 -->
+<h2 class="sec">⑧ 练四道</h2>
+<div class="qbox">
+  <div class="q"><b>题1：</b>某流水线分 5 段，每段 2ns，连续执行 100 条指令，总时间是多少？其中建立时间是多少？</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    总时间 = (k+n−1)×Δt = (5+100−1)×2 = <b>104×2 = 208ns</b><br>
+    建立时间 = k×Δt = 5×2 = <b>10ns</b>
+  </div></details>
+</div>
+<div class="qbox">
+  <div class="q"><b>题2：</b>同上流水线，理想吞吐率 TP<sub>max</sub> 和加速比 S 分别是多少？</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    TP<sub>max</sub> = 1/Δt = 1/2ns = <b>0.5 条/ns</b>（即每 2ns 流出一条指令）<br>
+    加速比 S = kn/(k+n−1) = 5×100/(5+100−1) = 500/104 ≈ <b>4.8 倍</b>（n 大时接近 k=5）
+  </div></details>
+</div>
+<div class="qbox">
+  <div class="q"><b>题3（各段不等）：</b>4 段流水线，各段耗时 2ns、1ns、3ns、1ns，执行 100 条指令，总时间？</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    不能套 (k+n−1)×Δt！<br>
+    总时间 = (2+1+3+1) + (100−1)×3 = 7 + 297 = <b>304ns</b>
+  </div></details>
+</div>
+<div class="qbox">
+  <div class="q"><b>题4（效率）：</b>k=4、n=5 的流水线，效率 E 是多少？</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    E = n/(k+n−1) = 5/(4+5−1) = 5/8 = <b>0.625（62.5%）</b><br>
+    （时空图 32 格中有活 20 格，和 ⑤′ 的图对得上）
+  </div></details>
+</div>
+
+<!-- 真题风格单选（考场真实形态） -->
+<h2 class="sec">⑨ 真题风格 · 单选（考场就是这种，限时 90 秒/题）</h2>
+<p>软考上午卷<b>全是单选</b>，所以流水线这块的真正练法是：<b>看穿题干 → 套对公式 → 在选项里选</b>。下面 3 题按考场样式出。</p>
+
+<div class="qbox">
+  <div class="q"><b>【真题风格·1】</b>某指令流水线由 5 段组成，每段执行时间为 2ns。连续执行 100 条指令时，该流水线的吞吐率为（　）。</div>
+  <div class="q" style="margin-top:6px">A. 0.5 条/ns　　B. 0.48 条/ns　　C. 0.96 条/ns　　D. 0.1 条/ns</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>选 B。</b>① 总时间 = (k+n−1)×Δt = (5+100−1)×2 = <b>208ns</b>；② TP = n/总时间 = 100/208 ≈ <b>0.48 条/ns</b><br>
+    <span class="d">干扰项拆解（每个都有含义）：<br>
+    · A = 0.5 = <code>1/Δt</code> → 那是 <b>TP<sub>max</sub>（上限）</b>，题干问的是"<b>实际</b>吞吐率"。<b>这是本考点第一号坑。</b><br>
+    · C = 0.96 = <code>n/(k+n−1) = 100/104</code> → 忘了除以 Δt（把比例当成了吞吐率）<br>
+    · D = 0.1 = <code>1/(k×Δt)</code> → 乱凑</span>
+  </div></details>
+</div>
+
+<div class="qbox">
+  <div class="q"><b>【真题风格·2】</b>某流水线的取指、译码、执行、访存、写回 5 段耗时分别为 <b>2ns、2ns、4ns、2ns、2ns</b>。连续执行 <b>50</b> 条指令，其实际吞吐率约为（　）。</div>
+  <div class="q" style="margin-top:6px">A. 0.24 条/ns　　B. 0.25 条/ns　　C. 0.83 条/ns　　D. 0.08 条/ns</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>选 A。</b>各段<b>不等</b> → 总时间 = ΣΔ + (n−1)×max{Δt} = (2+2+4+2+2) + 49×4 = 12 + 196 = <b>208ns</b><br>
+    TP = 50 / 208 ≈ <b>0.24 条/ns</b><br>
+    <span class="d">干扰项拆解：<br>
+    · B = 0.25 = <code>1/max{Δt} = 1/4</code> → 又是 <b>TP<sub>max</sub> 上限</b>，不是实际值<br>
+    · C = 0.83 = <code>n/ΣΔ = 50/60</code> → 忘了流水线（等于假设"每条独占 12ns")<br>
+    · D = 0.08 = <code>1/ΣΔ</code> → 乱凑<br>
+    ⚠️ 这题同时踩两个坑：<b>各段不等</b> + <b>上限 vs 实际</b>。</span>
+  </div></details>
+</div>
+
+<div class="qbox">
+  <div class="q"><b>【真题风格·3】</b>某流水线共 8 段，每段 2ns。连续执行 200 条指令时，流水线的加速比约为（　）。</div>
+  <div class="q" style="margin-top:6px">A. 7.7　　B. 4.8　　C. 6.5　　D. 8.0</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>选 A。</b>S = kn/(k+n−1) = 8×200/(8+200−1) = 1600/207 ≈ <b>7.7 倍</b><br>
+    <span class="d">干扰项拆解：<br>
+    · D = 8.0 = <code>S<sub>max</sub> = k</code> → 加速比的<b>天花板</b>，n→∞ 才够得着；n=200 还没到（7.7 &lt; 8）<br>
+    · B = 4.8 = <code>5×100/104</code> → 上一题的数字照抄（考场上看到眼熟的数字要警惕）<br>
+    · C = 6.5 → 乱凑<br>
+    🔑 顺带一个发现：<b>Δt = 2ns 在这题里是白给的</b> —— 因为 S 的公式里 Δt 被约掉了（S 跟 Δt 无关）。<br>
+    看到"加速比"就别管每段多快，只要 k 和 n。</span>
+  </div></details>
+</div>
+
+<div class="key r">⚠️ <b>考场铁律：选项一定会包含正确答案。</b>若你算出的数在选项里没有，<b>回头检查</b>——多半是 k 数错、n 数错，或者把"实际值/上限值"搞反了。别硬选一个最像的。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const SCOLORS = ['s1','s2','s3','s4','s5','s6'];
+const SNAMES = ['取指','译码','执行','访存','写回','段6'];
+let timer=null, tick=0, K=4, N=5;
+
+function draw(){
+  clearInterval(timer);
+  const k = parseInt($('inK').value);
+  const n = parseInt($('inN').value);
+  if(!(k>=2&&k<=6) || !(n>=1&&n<=10)){
+    $('errTxt').textContent = 'k 取 2~6，n 取 1~10';
+    return;
+  }
+  $('errTxt').textContent='';
+  K=k; N=n; tick=0;
+  const total = k + n - 1;
+
+  // 构建时空图
+  let rows='';
+  for(let s=0;s<k;s++){
+    let cells='';
+    for(let t=0;t<total;t++){
+      // 第 s 段在时刻 t 处理哪条指令？ 指令序号 = t-s （0-based）
+      const inst = t - s;
+      if(inst>=0 && inst<n){
+        cells += `<div class="cell on ${SCOLORS[s]}" data-s="${s}" data-t="${t}" data-inst="${inst}">I${inst+1}</div>`;
+      } else {
+        cells += `<div class="cell" data-s="${s}" data-t="${t}"></div>`;
+      }
+    }
+    rows += `<div class="cellrow"><div class="lb" style="color:var(--c, #e6edf3)">${SNAMES[s]||('段'+(s+1))}</div>${cells}</div>`;
+  }
+  // 时刻轴
+  let axis='<div class="cellrow"><div class="lb"></div>';
+  for(let t=0;t<total;t++) axis += `<div class="ax">${t+1}</div>`;
+  axis += '</div>';
+
+  $('spaceOut').innerHTML = rows + axis;
+
+  // 统计
+  const tp    = n / total;   // 实际吞吐率（以 Δt 为单位：条/Δt）
+  const tpMax = 1;           // 最大吞吐率 = 1/Δt（以 Δt 为单位恒为 1）
+
+  $('statOut').innerHTML =
+    `<div class="it"><div class="l">段数 k</div><div class="v">${k}</div></div>`+
+    `<div class="it"><div class="l">指令数 n</div><div class="v">${n}</div></div>`+
+    `<div class="it"><div class="l">总格数 (k+n−1)</div><div class="v">${total}</div></div>`+
+    `<div class="it"><div class="l">流水线时间</div><div class="v">${total}Δt</div></div>`+
+    `<div class="it"><div class="l">串行时间</div><div class="v">${k*n}Δt</div></div>`+
+    `<div class="it"><div class="l">吞吐率 TP</div><div class="v ok">${tp.toFixed(3)} 条/Δt</div></div>`+
+    `<div class="it"><div class="l">TP<sub>max</sub> 上限</div><div class="v">${tpMax} 条/Δt</div></div>`+
+    `<div class="it"><div class="l">建立时间</div><div class="v">${k}Δt</div></div>`;
+
+  $('calcOut').innerHTML =
+    `<div class="key g">总时间 = (k+n−1)×Δt = (${k}+${n}−1)×Δt = <b>${total}Δt</b>　｜　`+
+    `串行时间 = k×n×Δt = ${k}×${n}×Δt = <b>${k*n}Δt</b></div>`+
+    `<div class="key g">吞吐率 TP = n ÷ 总时间 = ${n} ÷ ${total}Δt = <b>${tp.toFixed(3)} 条/Δt</b>　｜　`+
+    `TP<sub>max</sub> = 1/Δt = <b>1 条/Δt</b>（上限，n 越大越贴近）</div>`+
+    `<div class="key g">建立时间 = k×Δt = <b>${k}Δt</b>　｜　`+
+    `拆解验证：建立时间 + (n−1)×Δt = ${k} + ${n-1} = <b>${k+(n-1)}Δt</b> = 总时间 ✓</div>`;
+
+  // 动画：按时刻逐列点亮
+  timer = setInterval(()=>{
+    document.querySelectorAll('.cell').forEach(c=>c.classList.remove('done'));
+    for(let t=0;t<=tick;t++){
+      document.querySelectorAll(`.cell[data-t="${t}"]`).forEach(c=>{ if(c.dataset.inst!==undefined) c.classList.add('done'); });
+    }
+    tick++;
+    if(tick>=total){ clearInterval(timer); }
+  }, 350);
+}
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>浮点数 阶码+尾数 转换动画 · 规格化/移码/补码精讲</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d1117; color:#e6edf3;
+    font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    padding:28px 36px; max-width:1180px; margin:0 auto;
+  }
+  h1 { font-size:22px; margin-bottom:6px; }
+  h1 .hl { color:#39c5cf; }
+  .sub { color:#8b949e; font-size:13px; margin-bottom:18px; }
+
+  .pre { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .pre b { color:#e6edf3; }
+  .pre .k { color:#39c5cf; } .pre .g { color:#3fb950; } .pre .o { color:#ffa657; } .pre .b { color:#79c0ff; } .pre .p { color:#bc8cff; }
+
+  .pickers { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+  .pickers .grp-tag { font-size:12px; color:#8b949e; margin-right:4px; }
+  button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:8px; padding:7px 14px;
+    font-size:13.5px; cursor:pointer; transition:all .2s; }
+  button:hover { background:#30363d; border-color:#8b949e; }
+  button.sel { background:#238636; border-color:#2ea043; font-weight:bold; }
+
+  .stage { background:#0f151d; border:1px solid #30363d; border-radius:12px; padding:20px 22px; }
+
+  /* ---------- 小白引子 ---------- */
+  .intro { margin-bottom:26px; }
+  .intro h2 { font-size:17px; margin:26px 0 12px; padding-left:11px; border-left:4px solid #39c5cf; }
+  .intro h2:first-child { margin-top:0; }
+  .intro p { font-size:14px; line-height:1.95; color:#c9d1d9; margin:8px 0; }
+  .intro b { color:#e6edf3; }
+  .intro code { background:#0d1117; border:1px solid #30363d; border-radius:4px; padding:1px 6px; color:#79c0ff; font-family:Menlo,monospace; font-size:12.5px; }
+  .intro .key { background:#39c5cf1a; border-left:3px solid #39c5cf; border-radius:6px; padding:10px 14px; margin:12px 0; font-size:14px; line-height:1.8; }
+  .intro .formula { text-align:center; font-family:Menlo,monospace; font-size:17px; color:#e6edf3; background:#161b22;
+    border:1px solid #30363d; border-radius:10px; padding:16px; margin:14px 0; line-height:2; }
+  .intro .formula .m { color:#79c0ff; } .intro .formula .e { color:#ffa657; } .intro .formula small { color:#8b949e; font-size:12px; }
+  .annot { font-family:Menlo,Consolas,monospace; font-size:14px; line-height:2; color:#c9d1d9;
+    background:#161b22; border:1px solid #30363d; border-radius:10px; padding:14px 18px; margin:12px 0; white-space:pre; overflow-x:auto; }
+  .annot .m { color:#79c0ff; } .annot .e { color:#ffa657; } .annot .g { color:#3fb950; } .annot .r { color:#f85149; }
+  .annot .d { color:#6e7681; }
+  .qbox { background:#161b22; border:1px dashed #39c5cf66; border-radius:10px; padding:12px 16px; margin:14px 0; }
+  .qbox .q { font-size:13.5px; line-height:1.9; color:#c9d1d9; }
+  .qbox .q b { color:#39c5cf; }
+  .qbox summary { cursor:pointer; font-size:13px; color:#39c5cf; margin-top:8px; outline:none; }
+  .qbox summary:hover { text-decoration:underline; }
+  .qbox .ans { margin-top:8px; padding-top:8px; border-top:1px dashed #30363d; font-size:13px; line-height:1.9; color:#8b949e; }
+  .qbox .ans b { color:#3fb950; }
+  .lt { border-collapse:collapse; font-size:13px; margin:12px 0; width:100%; }
+  .lt th,.lt td { border:1px solid #30363d; padding:7px 10px; text-align:left; }
+  .lt th { background:#161b22; color:#8b949e; font-weight:normal; }
+  .lt td { color:#c9d1d9; } .lt td b { color:#79c0ff; }
+
+  .trueval { display:flex; align-items:baseline; gap:10px; margin-bottom:16px; padding:12px 16px;
+    background:#161b22; border:1px solid #21262d; border-radius:10px; flex-wrap:wrap; }
+  .trueval .lbl { font-size:12px; color:#8b949e; letter-spacing:2px; }
+  .trueval .num { font-size:28px; font-weight:bold; color:#e6edf3; font-family:Menlo,monospace; }
+  .trueval .exp { font-family:Menlo,monospace; font-size:14px; color:#79c0ff; font-weight:bold; }
+  .trueval .hint { font-size:12px; color:#6e7681; margin-left:auto; }
+
+  .fields { display:flex; gap:16px; margin:6px 0 4px; }
+  .field-grp { display:flex; flex-direction:column; gap:6px; }
+  .field-grp .cap { font-size:12px; letter-spacing:1px; }
+  .field-grp.e .cap { color:#ffa657; }
+  .field-grp.m .cap { color:#79c0ff; }
+  .field-grp .cap small { color:#6e7681; font-weight:normal; }
+
+  .cells { display:flex; gap:6px; }
+  .cell { width:44px; height:48px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+    font-family:Menlo,Consolas,monospace; font-size:22px; font-weight:bold; position:relative; transition:all .25s; }
+  .cell .w { position:absolute; bottom:-17px; left:0; right:0; text-align:center; font-size:9px; color:#6e7681; font-weight:normal; letter-spacing:0; }
+  .cell.empty { color:#30363d; border:1.5px dashed #30363d; }
+  .cell.e { background:#161b22; border:1.5px solid #30363d; color:#e6edf3; }
+  .cell.e.on { border-color:#ffa65777; color:#ffa657; }
+  .cell.m { background:#161b22; border:1.5px solid #30363d; color:#e6edf3; }
+  .cell.m.on { border-color:#79c0ff77; color:#79c0ff; }
+  .cell.sig.on { border-width:2px; }
+  .cell.e.sig.on { border-color:#ffa657; color:#ffd8a8; }
+  .cell.m.sig.on { border-color:#79c0ff; color:#a5d6ff; }
+  .cell.flip { animation:flip .35s ease; }
+  @keyframes flip { 0%{transform:rotateX(0)} 50%{transform:rotateX(90deg)} 100%{transform:rotateX(0)} }
+  .sep { width:2px; background:#30363d; border-radius:2px; margin:0 2px; }
+
+  .controls { margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  button.primary { background:#238636; border-color:#2ea043; font-weight:bold; }
+  button.primary:hover { background:#2ea043; }
+  .step-ind { font-family:Menlo,monospace; font-size:13px; color:#8b949e; margin-left:auto; }
+
+  .desc-box { margin-top:12px; background:#161b22; border:1px solid #30363d; border-left:4px solid #39c5cf;
+    border-radius:8px; padding:12px 16px; min-height:74px; }
+  .desc-box .t { font-weight:bold; font-size:15px; margin-bottom:5px; color:#39c5cf; }
+  .desc-box .d { font-size:13.5px; line-height:1.75; color:#c9d1d9; }
+  .desc-box code { background:#0d1117; border:1px solid #30363d; border-radius:4px; padding:1px 6px; color:#79c0ff; font-family:Menlo,monospace; }
+
+  h2.sec { font-size:16px; margin:30px 0 12px; padding-left:10px; border-left:4px solid #39c5cf; }
+  h2.sec .en { color:#6e7681; font-size:12px; font-weight:normal; margin-left:8px; }
+
+  .know { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
+  .card h3 { font-size:14.5px; margin-bottom:9px; }
+  .card ul,.card ol { margin-left:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .card b { color:#e6edf3; }
+  .card code { background:#0d1117; border:1px solid #30363d; border-radius:4px; padding:1px 5px; color:#79c0ff; font-family:Menlo,monospace; font-size:12px; }
+  .card.g h3 { color:#3fb950; } .card.o h3 { color:#ffa657; }
+  .card.b h3 { color:#79c0ff; } .card.p h3 { color:#bc8cff; }
+  .wide { grid-column:1 / -1; }
+
+  .ieee { font-family:Menlo,Consolas,monospace; font-size:15px; margin:10px 0; }
+  .ieee .s { color:#f778ba; } .ieee .e { color:#ffa657; } .ieee .m { color:#79c0ff; }
+  .ieee .seg { display:inline-block; padding:6px 10px; border-radius:6px; margin-right:4px; letter-spacing:2px; }
+  .ieee .seg.s { background:#f778ba22; border:1px solid #f778ba55; }
+  .ieee .seg.e { background:#ffa65722; border:1px solid #ffa65755; }
+  .ieee .seg.m { background:#79c0ff22; border:1px solid #79c0ff55; }
+  .ieee-lbl { display:inline-block; font-family:"PingFang SC",sans-serif; font-size:11px; color:#8b949e; }
+  table.tb { border-collapse:collapse; font-size:12.5px; margin-top:6px; width:100%; }
+  table.tb th,table.tb td { border:1px solid #30363d; padding:6px 9px; text-align:left; }
+  table.tb th { background:#161b22; color:#8b949e; font-weight:normal; }
+  table.tb td { color:#c9d1d9; }
+  table.tb td.b { color:#79c0ff; } table.tb td.o { color:#ffa657; }
+</style>
+</head>
+<body>
+
+<h1>浮点数 <span class="hl">阶码 + 尾数</span> 转换动画</h1>
+<div class="sub">软考 · 计算机组成原理 ｜ 数据表示 ｜ 从零讲懂「阶码 + 尾数」，再点「下一步」看它怎么拼出来</div>
+
+<!-- ==================== 零基础引子 ==================== -->
+<div class="intro">
+
+<h2>⓪ 先看全貌：格式 + 完整流程速查（背下来就能做题）</h2>
+<p><b>本页格式：共 11 位 = 阶码区 4 位 + 尾数区 7 位。</b></p>
+<div class="annot">┌─────────────┬─────────────────┐
+│   阶码区      │      尾数区        │
+│    4 位      │       7 位         │
+├──────┬──────┼────────┬─────────┤
+│ <span class="e">阶符</span> │ <span class="e">阶码</span>  │ <span class="m">数符</span>   │ <span class="m">小数位</span>   │
+│ 1 位 │ 3 位  │  1 位   │  6 位    │
+└──────┴──────┴────────┴─────────┘
+  <span class="e">阶码的符号</span>  <span class="e">阶码大小</span>  <span class="m">数的符号</span>  <span class="m">尾数去掉 0. 后</span></div>
+
+<p><b>完整计算流程（5 步）</b>——设要算真值 X：</p>
+<table class="lt">
+<tr><th>步骤</th><th>做什么</th><th>例子（X = 5.25）</th></tr>
+<tr><td><b>1</b></td><td>十进制 → 二进制<br><span style="color:#8b949e;font-size:12px">整数：除2取余倒着读｜小数：乘2取整顺着读</span></td><td>5.25 → <code>101.01</code></td></tr>
+<tr><td><b>2</b></td><td>规格化：挪小数点成 <code>0.1xxx</code><br><span style="color:#8b949e;font-size:12px">挪几位，阶码 E 就是几</span></td><td><code>0.10101 × 2³</code>，E=3</td></tr>
+<tr><td><b>3</b></td><td>算阶码：<b>E + 8</b> 后转 4 位二进制<br><span style="color:#8b949e;font-size:12px">不够 4 位左边补 0（偏移量恒为 8）</span></td><td>3+8=11 → <code>1011</code></td></tr>
+<tr><td><b>4</b></td><td>算尾数：数符 + 小数部分<br><span style="color:#8b949e;font-size:12px">正0负1；小数不够 6 位右边补 0</span></td><td>0 + <code>101010</code> = <code>0101010</code></td></tr>
+<tr><td><b>5</b></td><td>两段拼起来</td><td><code>1011 0101010</code></td></tr>
+</table>
+
+<p><b>补 0 往哪边？一句话：小数右补、整数左补</b>（往"权值小、不影响数值"的那边补）。</p>
+<table class="lt">
+<tr><th>要补的部分</th><th>方向</th><th>为什么</th></tr>
+<tr><td>二进制<b>小数</b>、尾数小数位</td><td style="color:#3fb950"><b>右补（末尾）</b></td><td>右边权值趋近 0（1/64…），补 0 不加值</td></tr>
+<tr><td>二进制<b>整数</b>、阶码转位</td><td style="color:#3fb950"><b>左补（最前）</b></td><td>左边是高位，补 0 只补位不加值</td></tr>
+</table>
+<div class="annot"><span class="d">反例（补错方向会变值）：</span>
+  小数 0.10101 补6位 → <span class="g">右补 0.101010 = 0.65625 ✓</span> ｜ <span class="r">左补 0.010101 = 0.328125 ✗</span>
+  整数 5 补8位      → <span class="g">左补 00000101 = 5 ✓</span>       ｜ <span class="r">右补 10100000 = 160 ✗</span></div>
+
+<div class="qbox" style="border-color:#79c0ff66">
+  <div class="q"><b>顺带复习：原码 / 反码 / 补码（8 位 = 1 符号 + 7 数值）</b>　符号位：0 正 1 负</div>
+  <div class="ans" style="color:#c9d1d9;border:0;padding-top:6px">
+    <table class="lt" style="margin:6px 0">
+    <tr><th>码制</th><th>正数</th><th>负数</th></tr>
+    <tr><td>原码</td><td>符号0 + 绝对值</td><td>符号1 + 绝对值</td></tr>
+    <tr><td>反码</td><td>原=反=补（不变）</td><td><b>数值位取反</b>，符号位仍为 1 ⚠️</td></tr>
+    <tr><td>补码</td><td>原=反=补（不变）</td><td><b>反码末位 +1</b></td></tr>
+    </table>
+    例 -45：原 <code>1 0101101</code> → 反 <code>1 1010010</code> → 补 <code>1 1010011</code><br>
+    <span style="color:#f85149">⚠️ 取反是「数值位取反」，符号位不动！</span>
+  </div>
+</div>
+
+<h2>① 其实你早就会了：科学计数法</h2>
+<p>中学学过的科学计数法，就是浮点数的“祖先”：</p>
+<div class="annot"><span class="m">12345</span>  =  <span class="m">1.2345</span> × <span class="e">10⁴</span>
+          └──┬──┘   └┬┘
+           <span class="m">尾数</span>     <span class="e">指数</span></div>
+<p>它的好处是：<b>不管数多大、多小，都能写成“一个小数 × 10 的几次方”</b>。</p>
+<div class="annot">0.00002    = 2 × 10<span class="e">⁻⁵</span>
+888000000  = 8.88 × 10<span class="e">⁸</span></div>
+<p><b>浮点数，就是“二进制版的科学计数法”</b>。公式只有一个：</p>
+<div class="formula">N = <span class="m">尾数</span> × 2<sup class="e">阶码</sup><br><small>十进制乘 10 的几次方，二进制就乘 2 的几次方 —— 仅此区别</small></div>
+
+<h2>② 为什么非得用它？定点数不够用</h2>
+<p>你在上一页学的<b>定点数</b>，小数点是<b>钉死</b>的。它像一根只有 8 格的尺子：</p>
+<div class="annot"><span class="d">0 .</span> 1 1 0 0 0 0 0   →  最大只能表示 0.1111111₂ ≈ 0.99</div>
+<p>结果就是：<b>量不了 888 这种大数，也量不了 0.00002 这种小数</b>，一算就“装不下”（溢出）。</p>
+<p>浮点数的思路是：<b>让小数点可以移动</b>（浮动的点 → 浮点数）。小数点往左移几位，指数就加几，数值不变，但能覆盖的范围一下子变得极大极小。</p>
+
+<h2>③ 四个格子，分别装什么</h2>
+<p>一个浮点数，拆成 4 段（下面是本页用的 11 位示例，先看结构、别管细节）：</p>
+<div class="annot">┌────┬────────┬────┬──────────┐
+│<span class="e">阶符</span> │ <span class="e">阶码</span>    │<span class="m">数符</span> │  <span class="m">尾数</span>     │
+└────┴────────┴────┴──────────┘
+  <span class="e">指数</span>   <span class="e">指数</span>       <span class="m">数字</span>   <span class="m">数字</span>
+  <span class="e">的符号 的大小</span>     <span class="m">的符号 的位数</span></div>
+<p>其实就是把科学计数法搬过来：</p>
+<table class="lt">
+<tr><th>科学计数法里的</th><th>对应格子</th><th>负责什么</th></tr>
+<tr><td>10 的 <b>指数</b></td><td class=""><span style="color:#ffa657">阶符 + 阶码</span></td><td><b>范围</b>：能表示多大 / 多小</td></tr>
+<tr><td><b>尾数</b>（1.2345 那部分）</td><td><span style="color:#79c0ff">数符 + 尾数</span></td><td><b>精度</b>：有效数字有几位</td></tr>
+</table>
+<div class="key">🔑 <b>必背口诀：阶码管范围，尾数管精度。</b><br>
+指数越大 → 数越大（范围靠它撑）；尾数位数越多 → 有效数字越多（精度靠它给）。</div>
+
+<h2>④ 什么叫“规格化”？（最容易懵的一步）</h2>
+<p>科学计数法里，<code>12345</code> 能写出无数种形式，它们全都相等：</p>
+<div class="annot"><span class="g">1.2345</span> × 10⁴     <span class="g">← 小数点后第一位是有效数字 ✅</span>
+<span class="r">0.12345</span> × 10⁵    <span class="r">← 第一位是 0，白占位置 ❌</span>
+<span class="r">12.345</span> × 10³     <span class="r">← 小数点前有两位 ❌</span></div>
+<p>问题来了：<b>同一个数这么多写法，计算机到底存哪一种？</b> 乱套了。</p>
+<p>所以定一个<b>唯一标准写法</b>：<b>让小数点后面第一位必须是有效数字</b>。这个“调成唯一标准写法”的动作，就叫 <b>规格化</b>。</p>
+<div class="key">🔑 规格化的两个目的：<br>
+1️⃣ 同一个数只有 <b>一种</b> 写法，不会乱；<br>
+2️⃣ 0 不白占位子，尾数每一格都用来装有效数字，<b>榨干精度</b>。</div>
+
+<div class="qbox">
+  <div class="q"><b>停下来自查：</b> ① 浮点里哪个部分决定“能表示多大的数”？哪个决定“多精确”？　② <code>0.056 × 10³</code> 是规格化写法吗？为什么？</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    ① <b>阶码管范围</b>（能多大/多小），<b>尾数管精度</b>（有效数字几位）。<br>
+    ② <b>不是</b>。小数点后第一位是 0，白占了位置。应改写成 <code>5.6 × 10¹</code>（第一位变成有效数字 5）。
+  </div></details>
+</div>
+
+<p style="margin-top:22px;color:#8b949e">上面的道理都懂了吗？懂了就点下面的按钮，我们进入<b>二进制世界</b>，看 <code>5.25</code> 这种数是怎么一步步变成 <code>阶码 + 尾数</code> 的 👇</p>
+</div>
+
+<div class="pre">
+  一句话：<b>浮点数 = 尾数 × 2<sup>阶码</sup></b>，形态是 <span class="o">阶符 阶码</span> + <span class="b">数符 尾数</span>。
+  <b>阶码管范围</b>（能表示多大），<b>尾数管精度</b>（有效数字多长）。
+  本页采用 <span class="o">4 位阶码（移码，偏移 8）</span> + <span class="b">7 位尾数（补码：1 数符 + 6 小数）</span>，共 11 位。
+</div>
+
+<div class="intro">
+
+<h2>⑤ 二进制版规格化长啥样（看懂就能做所有题）</h2>
+<p>二进制的有效数字只有 <b>0 和 1</b>，「有效数字」就是 <b>1</b>。所以二进制规格化的规则特别干脆：</p>
+<div class="key">🔑 <b>把小数点挪到「最左边那个 1」的前面</b>（即挪成 <code>0.1xxx</code> 形态），挪了几位，阶码就是几。</div>
+<p style="margin-top:4px;color:#8b949e">注意：<code>0.1xxx</code> 要同时满足 <b>①小数点前没有数字</b> 且 <b>②小数点后第一位是 1</b>，两个条件缺一不可。</p>
+<p>拿 <code>5.25</code> 演示，全程两件事：<b>①整数小数各转二进制 ②挪小数点</b>。</p>
+<div class="annot"><span class="d">第一步 · 转二进制</span>
+  整数 5  →  101        <span class="d">（5 = 4 + 1 = 101₂）</span>
+  小数 0.25 → .01       <span class="d">（0.25 × 2 = 0.5 → 0；0.5 × 2 = 1.0 → 1）</span>
+  合起来： 5.25 = <span class="g">101.01</span>₂
+
+<span class="d">第二步 · 挪小数点，直到变成 0.1xxx</span>
+  <span class="g">101.01</span>           <span class="d">原样</span>
+  <span class="g">10.101</span>  × 2¹     <span class="d">左移 1 位</span>
+  <span class="g">1.0101</span>  × 2²     <span class="d">左移 2 位</span>
+  <span class="g">0.10101</span> × 2³  ✅  <span class="d">左移 3 位 —— 小数点前终于没数字、且小数点后第一位是 1（0.1xxx）！</span></div>
+<p style="color:#f85149">⚠️ 别被 <code>10.101</code> 骗了：它小数点后第一位已经是 1，但小数点前还有 <code>10</code>，所以 <b>不算规格化</b>，要继续挪。只看"小数点后第一位"会在这里早停！</p>
+<p>停下来：<b>0.10101 × 2³ 就等于 5.25</b>（把小数点移回去验证一下：0.10101 右移 3 位 = 101.01 = 5.25 ✓）。</p>
+<div class="key">🔑 于是得到两个关键值：<b>阶码 E = 3</b>、<b>尾数 = 0.10101</b>。接下来只要把这两个值「塞进格子」——这就是下面动画干的事。</div>
+
+<div class="qbox">
+  <div class="q"><b>动手试一个：</b> <code>42</code> 的阶码和尾数分别是多少？（提示：42 = 101010₂）</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    42 = <b>101010</b>₂（整数，没有小数部分）。小数点本来在最右边：<br>
+    101010 → 10101.0 ×2¹ → 1010.10 ×2² → 101.010 ×2³ → 10.1010 ×2⁴ → 1.01010 ×2⁵ → <b>0.101010 ×2⁶</b> ✅<br>
+    所以 <b>阶码 E = 6，尾数 = 0.101010</b>。（在动画里选 +42 可按步核对）
+  </div></details>
+</div>
+
+<h2>⑥ 下面这个动画怎么用</h2>
+<p>选一个真值，然后一直点 <b>下一步</b>，它会带你走完这 6 步：</p>
+<table class="lt">
+<tr><th>步骤</th><th>在做什么</th><th>对应上面哪个道理</th></tr>
+<tr><td>① 十进制→二进制</td><td>算出 <code>101.01</code> 这种形式</td><td>⑤ 第一步</td></tr>
+<tr><td>② 规格化</td><td>挪小数点成 <code>0.10101 × 2³</code></td><td>⑤ 第二步</td></tr>
+<tr><td>③ 求阶码</td><td>把 E=3 用「移码」写成 4 位 0/1</td><td>阶码管范围</td></tr>
+<tr><td>④ 求尾数</td><td>把 0.10101 用「补码」写成 7 位 0/1</td><td>尾数管精度</td></tr>
+<tr><td>⑤ 拼起来</td><td>阶码 + 尾数 = 11 位 0/1</td><td>③ 的四个格子</td></tr>
+<tr><td>⑥ 反向校验</td><td>读回去看等不等于原数</td><td>验收</td></tr>
+</table>
+<p>⚠️ 两个“反例”按钮特别看：<b>+0.1</b>（尾数 6 位装不下 → 舍入，有误差）和 <b>+200</b>（阶码装不下 → 溢出）。</p>
+</div>
+
+<div class="pickers">
+  <span class="grp-tag">选一个真值：</span>
+  <span id="grp">
+    <button data-v="5.25" class="sel">+5.25</button>
+    <button data-v="42">+42</button>
+    <button data-v="-6.75">-6.75</button>
+    <button data-v="2.5">+2.5</button>
+    <button data-v="0.75">+0.75</button>
+    <button data-v="-0.25">-0.25</button>
+    <button data-v="0.1">+0.1（舍入）</button>
+    <button data-v="200">+200（溢出）</button>
+  </span>
+</div>
+
+<div class="stage">
+  <div class="trueval">
+    <span class="lbl">真值</span>
+    <span class="num" id="trueNum">+5.25</span>
+    <span class="exp" id="trueExp">= 101.01₂</span>
+    <span class="hint" id="trueHint"></span>
+  </div>
+
+  <div class="fields">
+    <div class="field-grp e">
+      <div class="cap">阶码 <small>移码 · 偏移 8 · 4 位</small></div>
+      <div class="cells" id="cells-e"></div>
+    </div>
+    <div class="sep"></div>
+    <div class="field-grp m">
+      <div class="cap">尾数 <small>补码 · 1 数符 + 6 小数 · 7 位</small></div>
+      <div class="cells" id="cells-m"></div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="primary" onclick="stepPrev()">◀ 上一步</button>
+  <button class="primary" onclick="stepNext()">下一步 ▶</button>
+  <button onclick="togglePlay()" id="playBtn">▶ 自动播放</button>
+  <button onclick="reset()">↺ 重置</button>
+  <span class="step-ind" id="stepInd"></span>
+</div>
+<div class="desc-box">
+  <div class="t" id="descT"></div>
+  <div class="d" id="descD"></div>
+</div>
+
+<h2 class="sec">📐 判断一个尾数是否“规格化” <span class="en">最常考</span></h2>
+<div class="know">
+  <div class="card g">
+    <h3>规格化 = 尾数绝对值 ∈ [0.5, 1)</h3>
+    <ul>
+      <li>目的①：同一个数<b>唯一</b>表示（否则 0.1×2⁰ 与 0.01×2¹ 都合法）</li>
+      <li>目的②：把最高位有效数字顶到第一位，<b>榨干尾数的精度</b></li>
+    </ul>
+  </div>
+  <div class="card o">
+    <h3>补码尾数的判断口诀</h3>
+    <ul>
+      <li><b>数符 ≠ 小数点后第一位</b> ⟺ 规格化</li>
+      <li>M ≥ 0 → 形如 <code>0.1xxx</code>（第一位是 1）</li>
+      <li>M &lt; 0 → 形如 <code>1.0xxx</code>（第一位是 0）</li>
+      <li>反例：<code>0.01xxx</code>、<code>1.1xxx</code> → <b>未</b>规格化，需左移</li>
+    </ul>
+  </div>
+</div>
+
+<h2 class="sec">➕ 浮点数运算：对阶 → 尾数加减 → 规格化 <span class="en">大题步骤</span></h2>
+<div class="know">
+  <div class="card b wide">
+    <ol>
+      <li><b>对阶</b>：两数阶码不同，令阶差 <code>K = 大阶 − 小阶</code>，把<b>阶小的数尾数右移 K 位</b>、阶码加 K（小阶向大阶看齐）。右移会丢低位 → 有精度损失。</li>
+      <li><b>求尾数和/差</b>：此时阶码已对齐，直接对尾数做加减。</li>
+      <li><b>结果规格化</b>：若尾数溢出（绝对值 ≥ 1）→ <b>右规</b>（尾数右移 1 位、阶码 +1）；若非规格化 → <b>左规</b>（尾数左移、阶码减）。同时判阶码是否溢出。</li>
+      <li><b>舍入</b>：处理右移/右规丢掉的低位（0 舍 1 入等）。</li>
+      <li><b>溢出判断</b>：以<b>阶码</b>为准 —— 阶码上溢 → 结果溢出（无穷）；阶码下溢 → 结果当 0。</li>
+    </ol>
+  </div>
+</div>
+
+<h2 class="sec">🏭 IEEE 754 单精度（1 + 8 + 23） <span class="en">例 1.5：176.0625</span></h2>
+<div class="know">
+  <div class="card p wide">
+    <div class="ieee">
+      <span class="seg s">0</span>
+      <span class="seg e">10000110</span>
+      <span class="seg m">01100000001000000000000</span>
+    </div>
+    <div style="font-size:12.5px;line-height:2;color:#c9d1d9">
+      ① <code>176.0625</code> = <code>10110000.0001₂</code><br>
+      ② 规格化：<code>1.01100000001 × 2⁷</code>（隐含小数点前那位 1，即尾数 = 1.xxx）<br>
+      ③ 阶码 = 指数 + 偏移量 <code>127</code> → <code>7 + 127 = 134 = 10000110₂</code>（注意：用 127 <b>不是</b> 128）<br>
+      ④ 尾数去掉隐含的 1，补足 23 位 → <code>01100000001 0000000000000</code>
+    </div>
+  </div>
+  <div class="card b" style="grid-column:1 / -1;">
+    <h3>IEEE 754 三种格式</h3>
+    <table class="tb">
+      <tr><th>参数</th><th>单精度</th><th>双精度</th><th>扩充精度</th></tr>
+      <tr><td>总字长</td><td>32</td><td>64</td><td>80</td></tr>
+      <tr><td>符号位 S</td><td>1</td><td>1</td><td>1</td></tr>
+      <tr><td>指数长度 E</td><td class="o">8</td><td class="o">11</td><td class="o">15</td></tr>
+      <tr><td>尾数长度 P</td><td class="b">23</td><td class="b">52</td><td class="b">64</td></tr>
+      <tr><td>指数偏移量</td><td>+127</td><td>+1023</td><td>+16383</td></tr>
+      <tr><td>可表示范围</td><td>10⁻³⁸~10³⁸</td><td>10⁻³⁰⁸~10³⁰⁸</td><td>10⁻⁴⁹³²~10⁴⁹³²</td></tr>
+    </table>
+    <ul style="margin-top:8px">
+      <li>阶码<b>全 0</b> → 非规格化值（用来表示 <code>0</code> 和极接近 0 的数）</li>
+      <li>阶码<b>全 1</b> → 特殊值：尾数全 0 = 无穷；尾数非 0 = <code>NaN</code></li>
+      <li>其余 → 规格化值：尾数隐含最高位 1，实际精度多一位（单精度 23→24 位）</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// ==================== 格式参数 ====================
+const FRAC=6, MASK=1<<FRAC, MOD=1<<(FRAC+1), E_LO=-8, E_HI=7;
+
+function r6(m){ return Math.round(m*MASK)/MASK; }
+function bits7(m){ let v=Math.round(m*MASK); return ((v%MOD)+MOD)%MOD; }
+function b7(v){ return v.toString(2).padStart(7,'0'); }
+function sval(v){ return (v>=MASK ? (v-MOD) : v)/MASK; }
+function isNorm(m){ if(Math.abs(m)<1e-12) return false; const v=bits7(m); return (v>>6)!==((v>>5)&1); }
+
+function binOf(V, maxFrac){
+  maxFrac = maxFrac||16;
+  const neg=V<0, a=Math.abs(V); let ip=Math.floor(a), fp=a-ip;
+  let is='', x=ip; if(x===0) is='0'; while(x>0){ is=(x%2)+is; x=Math.floor(x/2); }
+  let fs='', t=fp, c=0; while(t>1e-12 && c<maxFrac){ t*=2; if(t>=1){fs+='1';t-=1;} else fs+='0'; c++; }
+  return (neg?'-':'')+is+(fs?'.'+fs:'');
+}
+
+function analyze(V){
+  if(Math.abs(V)<1e-12) return {E:0,m:0,zero:true,exact:true};
+  const a=Math.abs(V); let E=Math.floor(Math.log2(a))+1; let m=V/Math.pow(2,E);
+  let m6=r6(m), g=0;
+  while(!isNorm(m6) && g++<40){ m6=r6(m6*2); E--; }
+  const recon=sval(bits7(m6))*Math.pow(2,E);
+  return {E, m:m6, zero:false, exact:Math.abs(recon-V)<1e-9};
+}
+
+// ==================== 状态 ====================
+let V=5.25, INFO=analyze(5.25), steps=[], cur=0, playing=null, animTimer=null;
+
+function buildSteps(){
+  const S=[], bin=binOf(V), num=(V>0?'+':'')+V;
+  if(INFO.zero){
+    S.push({t:'① 真值 = 0', d:'浮点里 0 是特殊情况：阶码、尾数全为 0。', fill:[], exp:'E码 0000', mant:'M码 0000000', hint:''});
+    return S;
+  }
+  const mStr=b7(bits7(INFO.m)), mFrac=mStr.slice(1);
+  const enc=INFO.E+8;
+  const eStr=(enc>=0&&enc<=15)? enc.toString(2).padStart(4,'0') : null;
+
+  S.push({t:'① 十进制 → 二进制',
+    d:`${num} = <code>${bin}</code>（整数部分除 2 取余，小数部分乘 2 取整）。`,
+    fill:[], exp:null, mant:null, hint:`二进制 ${bin}`});
+
+  S.push({t:'② 规格化 —— 写成 0.1xxx × 2^E',
+    d:`把小数点移动到<b>第一个有效 1</b> 的后面：尾数 = <code>0.${mFrac}</code>，阶码 E = <b>${INFO.E}</b>。`
+      + (INFO.exact?'':'　⚠️ 尾数 6 位装不下，已做<b>舍入</b>（这是误差来源）。'),
+    fill:[], exp:null, mant:null, hint:`0.${mFrac} × 2^${INFO.E}`});
+
+  if(eStr===null){
+    S.push({t:'③ 阶码溢出 ⚠️（阶码管范围）',
+      d:`E = ${INFO.E} 超出 4 位移码的表示范围 [${E_LO}, ${E_HI}]。数太大 / 太小，还没轮到尾数就先溢出了 —— 这正是「<b>阶码管范围</b>」。`,
+      fill:[], exp:null, mant:null, hint:'阶码溢出'});
+    return S;
+  }
+
+  S.push({t:'③ 求阶码 —— 移码（偏移 8）',
+    d:`阶码字段用 4 位<b>移码</b>：编码 = E + 偏移 = ${INFO.E} + 8 = <b>${enc}</b> = <code>${eStr}</code>。`
+      + `第 1 位是<b>阶符</b>（移码里 1 表示阶码为正），后 3 位是阶码数值。`,
+    fill:[0,1,2,3], exp:eStr, mant:null, hint:`E码 ${eStr}`});
+
+  S.push({t:'④ 求尾数 —— 补码（1 数符 + 6 小数）',
+    d:`尾数字段用 7 位<b>补码</b>：0.${mFrac} → <code>${mStr}</code>。第 1 位是<b>数符</b>（0 正 1 负），后面 6 位是小数位。`,
+    fill:[4,5,6,7,8,9,10], exp:eStr, mant:mStr, hint:`M码 ${mStr}`});
+
+  S.push({t:'⑤ 拼出完整浮点数',
+    d:`<span style="color:#ffa657">阶码</span> + <span style="color:#79c0ff">尾数</span> 拼起来 = <code>${eStr} ${mStr}</code>（共 11 位）。其中 <b>阶符</b>=${eStr[0]}、<b>数符</b>=${mStr[0]}。`,
+    fill:[0,1,2,3,4,5,6,7,8,9,10], exp:eStr, mant:mStr, hint:`${eStr} ${mStr}`});
+
+  S.push({t:'⑥ 反向校验',
+    d:`把编码读回来：尾数 × 2^阶码 = ${sval(bits7(INFO.m))} × 2^${INFO.E} = <b>${num}</b>`
+      + (INFO.exact?'　✓ 完全还原':'　≈ 近似值（尾数位数有限，这就是精度损失）'),
+    fill:[0,1,2,3,4,5,6,7,8,9,10], exp:eStr, mant:mStr, hint:`≈ ${num}`});
+  return S;
+}
+
+// ==================== 渲染 ====================
+function cellsHTML(){
+  let e='', m='';
+  for(let i=0;i<4;i++)  e+=`<span class="cell e ${i===0?'sig':''} empty" id="ce-${i}" data-on="0">0<span class="w">${i===0?'阶符':'阶码'}</span></span>`;
+  for(let i=0;i<7;i++)  m+=`<span class="cell m ${i===0?'sig':''} empty" id="cm-${i}" data-on="0">0<span class="w">${i===0?'数符':'2^-'+i}</span></span>`;
+  return {e,m};
+}
+
+function fillCells(expStr, mantStr, fillSet){
+  // 阶码：expStr 为 4 位或 null
+  for(let i=0;i<4;i++){
+    const el=document.getElementById('ce-'+i);
+    const on=fillSet.includes(i) && expStr;
+    el.textContent = on ? expStr[i] : '0';
+    el.classList.toggle('on', !!on);
+    el.classList.toggle('empty', !on);
+  }
+  for(let i=0;i<7;i++){
+    const el=document.getElementById('cm-'+i);
+    const gi=4+i;
+    const on=fillSet.includes(gi) && mantStr;
+    el.textContent = on ? mantStr[i] : '0';
+    el.classList.toggle('on', !!on);
+    el.classList.toggle('empty', !on);
+  }
+}
+
+function render(i){
+  if(animTimer){ clearTimeout(animTimer); animTimer=null; }
+  const s=steps[i];
+  fillCells(s.exp, s.mant, s.fill);
+  document.getElementById('descT').textContent=s.t;
+  document.getElementById('descD').innerHTML=s.d;
+  document.getElementById('stepInd').textContent=`步骤 ${i+1} / ${steps.length}`;
+  const num=(V>0?'+':'')+V;
+  document.getElementById('trueNum').textContent=num;
+  document.getElementById('trueExp').textContent = '= ' + binOf(V) + '₂';
+  document.getElementById('trueHint').textContent=s.hint||'';
+  // 字段逐个翻牌动画
+  if(s.fill && s.fill.length && (s.t.indexOf('③')===0 || s.t.indexOf('④')===0)){
+    let k=0;
+    const idxs=s.fill.slice();
+    const tick=()=>{
+      if(k>=idxs.length) return;
+      const gi=idxs[k];
+      const el = gi<4 ? document.getElementById('ce-'+gi) : document.getElementById('cm-'+(gi-4));
+      if(el){ el.classList.remove('flip'); void el.offsetWidth; el.classList.add('flip'); el.classList.remove('empty'); el.classList.add('on'); }
+      k++; animTimer=setTimeout(tick,150);
+    };
+    tick();
+  }
+}
+
+// ==================== 控制 ====================
+function pick(v){
+  stopPlay();
+  V=v; INFO=analyze(v);
+  document.querySelectorAll('#grp button').forEach(b=>b.classList.toggle('sel', +b.dataset.v===v));
+  steps=buildSteps(); cur=0; render(0);
+}
+function stepNext(){ if(cur<steps.length-1){ cur++; render(cur); } else stopPlay(); }
+function stepPrev(){ if(cur>0){ cur--; render(cur); } }
+function togglePlay(){
+  if(playing){ stopPlay(); return; }
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  playing=setInterval(()=>{ if(cur>=steps.length-1) stopPlay(); else stepNext(); }, 2200);
+}
+function stopPlay(){ if(playing){ clearInterval(playing); playing=null; } document.getElementById('playBtn').textContent='▶ 自动播放'; }
+function reset(){ stopPlay(); steps=buildSteps(); cur=0; render(0); }
+
+document.getElementById('cells-e').innerHTML=cellsHTML().e;
+document.getElementById('cells-m').innerHTML=cellsHTML().m;
+document.querySelectorAll('#grp button').forEach(b=>b.onclick=()=>pick(+b.dataset.v));
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight') stepNext();
+  if(e.key==='ArrowLeft') stepPrev();
+});
+
+pick(5.25);
+</script>
+</body>
+</html>

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>浮点数 对阶 动画 · 阶码对齐 + 尾数加减 + 规格化</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d1117; color:#e6edf3;
+    font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    padding:28px 36px; max-width:1120px; margin:0 auto;
+  }
+  h1 { font-size:22px; margin-bottom:6px; }
+  h1 .hl { color:#39c5cf; }
+  .sub { color:#8b949e; font-size:13px; margin-bottom:18px; }
+
+  .pre { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .pre b { color:#e6edf3; }
+  .pre .k { color:#39c5cf; } .pre .o { color:#ffa657; } .pre .b { color:#79c0ff; } .pre .g { color:#3fb950; }
+
+  .pickers { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+  .pickers .grp-tag { font-size:12px; color:#8b949e; margin-right:4px; }
+  button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:8px; padding:7px 14px;
+    font-size:13px; cursor:pointer; transition:all .2s; }
+  button:hover { background:#30363d; border-color:#8b949e; }
+  button.sel { background:#238636; border-color:#2ea043; font-weight:bold; }
+  button.primary { background:#238636; border-color:#2ea043; font-weight:bold; }
+  button.primary:hover { background:#2ea043; }
+
+  .stage { background:#0f151d; border:1px solid #30363d; border-radius:12px; padding:22px 24px; }
+
+  .oprow { display:flex; align-items:center; gap:14px; padding:11px 10px; border-radius:10px; margin-bottom:8px; transition:all .3s; flex-wrap:wrap; }
+  .oprow.hl-a { background:#79c0ff12; border:1px solid #79c0ff33; }
+  .oprow.hl-b { background:#ffa65712; border:1px solid #ffa65733; }
+  .oprow.hl-r { background:#3fb95012; border:1px solid #3fb95044; }
+  .oprow.res { border-top:1px dashed #30363d; padding-top:14px; margin-top:10px; }
+
+  .op-lbl { width:52px; font-size:15px; font-weight:bold; color:#e6edf3; flex:none; }
+  .op-lbl.a { color:#79c0ff; } .op-lbl.b { color:#ffa657; } .op-lbl.r { color:#3fb950; }
+  .op-empty { color:#6e7681; font-size:13px; }
+
+  .mant { display:flex; align-items:center; gap:5px; font-family:Menlo,Consolas,monospace; }
+  .mant .intb { font-size:24px; font-weight:bold; width:22px; text-align:center; }
+  .mant .dot { font-size:24px; font-weight:bold; color:#8b949e; }
+  .mcell { width:40px; height:46px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+    font-size:22px; font-weight:bold; background:#161b22; border:1.5px solid #30363d; color:#e6edf3; position:relative; transition:all .25s; }
+  .mcell .w { position:absolute; bottom:-15px; left:0; right:0; text-align:center; font-size:8px; color:#6e7681; font-weight:normal; }
+  .oprow.hl-a .mcell { border-color:#79c0ff55; color:#a5d6ff; }
+  .oprow.hl-b .mcell { border-color:#ffa65755; color:#ffd8a8; }
+  .oprow.hl-r .mcell { border-color:#3fb95055; color:#7ee787; }
+  .mcell.flip { animation:flip .35s ease; }
+  @keyframes flip { 0%{transform:rotateX(0)} 50%{transform:rotateX(90deg)} 100%{transform:rotateX(0)} }
+  .mcell.drop { border-color:#f85149 !important; color:#f85149 !important; border-style:dashed; }
+  .mcell.gain { box-shadow:0 0 10px #39c5cf88; border-color:#39c5cf !important; }
+
+  .expo { font-family:Menlo,monospace; font-size:17px; color:#8b949e; margin-left:6px; }
+  .expo sup { color:#ffa657; font-weight:bold; font-size:14px; }
+
+  .controls { margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .step-ind { font-family:Menlo,monospace; font-size:13px; color:#8b949e; margin-left:auto; }
+
+  .desc-box { margin-top:14px; background:#161b22; border:1px solid #30363d; border-left:4px solid #39c5cf;
+    border-radius:8px; padding:13px 16px; min-height:82px; }
+  .desc-box .t { font-weight:bold; font-size:15px; margin-bottom:6px; color:#39c5cf; }
+  .desc-box .d { font-size:13.5px; line-height:1.8; color:#c9d1d9; }
+  .desc-box code { background:#0d1117; border:1px solid #30363d; border-radius:4px; padding:1px 6px; color:#79c0ff; font-family:Menlo,monospace; }
+
+  h2.sec { font-size:16px; margin:30px 0 12px; padding-left:10px; border-left:4px solid #39c5cf; }
+  h2.sec .en { color:#6e7681; font-size:12px; font-weight:normal; margin-left:8px; }
+  .know { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
+  .card h3 { font-size:14.5px; margin-bottom:9px; }
+  .card ul,.card ol { margin-left:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .card b { color:#e6edf3; }
+  .card code { background:#0d1117; border:1px solid #30363d; border-radius:4px; padding:1px 5px; color:#79c0ff; font-family:Menlo,monospace; font-size:12px; }
+  .card.g h3 { color:#3fb950; } .card.o h3 { color:#ffa657; }
+  .card.b h3 { color:#79c0ff; } .card.p h3 { color:#bc8cff; } .card.r h3 { color:#f85149; }
+  .wide { grid-column:1 / -1; }
+  .key { background:#39c5cf1a; border-left:3px solid #39c5cf; border-radius:6px; padding:9px 13px; margin-top:8px; font-size:13px; line-height:1.8; }
+</style>
+</head>
+<body>
+
+<h1>浮点数 <span class="hl">对阶</span> 动画</h1>
+<div class="sub">软考 · 计算机组成原理 ｜ 两个浮点数相加：对阶 → 尾数加减 → 规格化 → 舍入 → 判溢出</div>
+
+<div class="pre">
+  两个浮点数相加，<b>不能直接加</b>——因为它们的小数点位置（阶码）不一样。
+  比如 <span class="b">101.0</span> 和 <span class="o">1.100</span> 相加，得像列竖式一样<b>先对齐小数点</b>，这个动作就叫 <span class="k">对阶</span>。
+  <br>本页采用：<b>5 位小数 + 1 位整数(进位) = 6 位尾数</b>；阶码为普通整数，<b>可表示范围 −8 ~ +7</b>（超出即上溢/下溢）。
+</div>
+
+<div class="pickers">
+  <span class="grp-tag">选一个例子：</span>
+  <span id="grp">
+    <button data-k="A" class="sel">0.10100×2³ + 0.11000×2¹（阶不同）</button>
+    <button data-k="B">0.11000×2⁵ + 0.10100×2⁵（阶相同·尾数溢出）</button>
+    <button data-k="C">0.10010×2⁷ + 0.10010×2⁶（阶不同）</button>
+    <button data-k="D">0.11000×2⁷ + 0.11000×2⁷（⚠️ 阶码上溢·真溢出）</button>
+    <button data-k="E">0.00010×2⁻⁷ + 0.00010×2⁻⁷（⚠️ 阶码下溢·当0）</button>
+  </span>
+</div>
+
+<div class="stage">
+  <div class="oprow" id="row-a"></div>
+  <div class="oprow" id="row-b"></div>
+  <div class="oprow res" id="row-r"></div>
+</div>
+
+<div class="controls">
+  <button class="primary" onclick="stepPrev()">◀ 上一步</button>
+  <button class="primary" onclick="stepNext()">下一步 ▶</button>
+  <button onclick="togglePlay()" id="playBtn">▶ 自动播放</button>
+  <button onclick="reset()">↺ 重置</button>
+  <span class="step-ind" id="stepInd"></span>
+</div>
+<div class="desc-box">
+  <div class="t" id="descT"></div>
+  <div class="d" id="descD"></div>
+</div>
+
+<h2 class="sec">📌 核心规则（背这 4 条）</h2>
+<div class="know">
+  <div class="card b">
+    <h3>① 对阶：小阶向大阶看齐</h3>
+    <ul>
+      <li>阶差 <code>K = 大阶 − 小阶</code></li>
+      <li>把<b>阶小的那个数</b>尾数<b>右移 K 位</b>，阶码 <b>+K</b></li>
+      <li>右移会丢低位 → 有精度损失</li>
+    </ul>
+    <div class="key">为什么小阶向大阶？若大阶向小阶看齐，大阶的尾数要左移，会<b>凭空多出低位</b>（假精度）。</div>
+  </div>
+  <div class="card o">
+    <h3>② 尾数加减 + 规格化</h3>
+    <ul>
+      <li>对阶后尾数直接加减（定点小数）</li>
+      <li>结果可能溢出：形如 <code>1.xxx</code> → <b>右规</b>（尾数右移1位，阶码+1）</li>
+      <li>结果可能太小：形如 <code>0.0xxx</code> → <b>左规</b>（尾数左移，阶码减）</li>
+      <li>目标：回到 <code>0.1xxx</code> 规格化形态</li>
+    </ul>
+  </div>
+  <div class="card r wide">
+    <h3>③ 溢出判断：只看阶码，不看尾数！</h3>
+    <ul>
+      <li><b>尾数溢出</b>（结果 ≥1）→ 不算溢出，<b>右规一下</b>就修好了（例子 B）</li>
+      <li><b>阶码上溢</b>（阶码超过最大 +7）→ <b>真·溢出</b>，报错 / 无穷大（例子 D：2⁷+2⁷ 右规后阶码 8 → 溢出）</li>
+      <li><b>阶码下溢</b>（阶码小于最小 −8）→ 结果<b>当 0 处理</b>，不报错（例子 E：左规后阶码 −9 → 当 0）</li>
+    </ul>
+    <div class="key">一句话：<b>阶码管范围</b>——范围出问题才是真溢出。尾数只是精度，右规/舍入能修。<br>
+    <b>上溢 = 报错/∞；下溢 = 当 0。</b></div>
+  </div>
+  <div class="card p wide">
+    <h3>④ 完整五步（考试按这个顺序写）</h3>
+    <ol>
+      <li><b>对阶</b>：小阶向大阶看齐，小阶尾数右移 K 位</li>
+      <li><b>尾数求和/差</b>：同阶后直接加减</li>
+      <li><b>结果规格化并判溢出</b>：右规 / 左规</li>
+      <li><b>舍入</b>：处理右移丢掉的低位</li>
+      <li><b>溢出判别</b>：以阶码为准（上溢=真溢出，下溢=0）</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+// ==================== 格式参数 ====================
+const FRAC = 5;                 // 尾数小数位
+const E_MIN = -8, E_MAX = 7;    // 本机阶码可表示范围（超出 = 上溢 / 下溢）
+const CIRC = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+
+const CASES = {
+  A: { a:{bits:[1,0,1,0,0], e:3},  b:{bits:[1,1,0,0,0], e:1} },
+  B: { a:{bits:[1,1,0,0,0], e:5},  b:{bits:[1,0,1,0,0], e:5} },
+  C: { a:{bits:[1,0,0,1,0], e:7},  b:{bits:[1,0,0,1,0], e:6} },
+  D: { a:{bits:[1,1,0,0,0], e:7},  b:{bits:[1,1,0,0,0], e:7} },   // 右规后阶码 8 > 7 → 上溢
+  E: { a:{bits:[0,0,0,1,0], e:-7}, b:{bits:[0,0,0,1,0], e:-7} }   // 左规后阶码 -9 < -8 → 下溢
+};
+
+function bstr(b){ return b.join(''); }
+function addBits(x,y){
+  const r=[]; let c=0;
+  for(let i=FRAC-1;i>=0;i--){ const s=x[i]+y[i]+c; r[i]=s&1; c=s>>1; }
+  return {carry:c, bits:r};
+}
+
+// ==================== 步骤生成 ====================
+let steps=[], cur=0, playing=null, animTimer=null, curCase='A';
+
+function buildSteps(k){
+  const C=CASES[k];
+  let A={bits:C.a.bits.slice(), e:C.a.e};
+  let B={bits:C.b.bits.slice(), e:C.b.e};
+  const S=[];
+  const snap=(extra)=>Object.assign({
+    a:{bits:A.bits.slice(), e:A.e},
+    b:{bits:B.bits.slice(), e:B.e},
+    r:null, hl:'both'
+  }, extra||{});
+  const push=o=>{ o.no=CIRC[S.length]; S.push(o); };
+
+  // ① 读题
+  push(snap({t:CIRC[0]+' 读题',
+    d:`A = 0.${bstr(A.bits)} × 2<sup>${A.e}</sup>，B = 0.${bstr(B.bits)} × 2<sup>${B.e}</sup>。求 A + B。`}));
+
+  const Emax=Math.max(A.e,B.e), Emin=Math.min(A.e,B.e), K=Emax-Emin;
+  const bigIsA = A.e>=B.e;
+  const tkey = bigIsA?'b':'a';
+  const tname = bigIsA?'B':'A';
+
+  if(K===0){
+    push(snap({hl:'both', t:CIRC[1]+' 阶码相同 —— 无需对阶',
+      d:`两数阶码都是 ${A.e}，<b>阶差 K = 0</b>，小数点已经对齐，可以直接把尾数相加。`}));
+  } else {
+    push(snap({hl:'both', t:CIRC[1]+' 比阶码，定阶差 K',
+      d:`A 阶码 ${A.e}，B 阶码 ${B.e} → <b>大阶 = ${Emax}</b>，<b>阶差 K = ${K}</b>。<br>
+         规则：<b>小阶向大阶看齐</b>，所以把阶小的 <b>${tname}</b> 的尾数<b>右移 ${K} 位</b>、阶码 +${K}。`}));
+
+    const target = bigIsA? B : A;
+    push(snap({hl:tkey, t:CIRC[2]+` 对阶 —— ${tname} 尾数右移 ${K} 位`,
+      d:`${tname} 尾数每右移 1 位，阶码 +1，直到阶码追平 ${Emax}。看格子一位位往右挪 👇`,
+      shift:{key:tkey, before:target.bits.slice(), times:K, startE:Emin, endE:Emax}}));
+    // 真正执行右移
+    for(let n=0;n<K;n++){ target.bits=[0, ...target.bits.slice(0,FRAC-1)]; target.e++; }
+
+    push(snap({hl:tkey, t:CIRC[3]+' 对阶完成',
+      d:`${tname} 变成 <code>0.${bstr(target.bits)} × 2<sup>${Emax}</sup></code>。两数阶码现在都是 ${Emax}，可以加尾数了。`}));
+  }
+
+  // 尾数相加
+  const {carry,bits}=addBits(A.bits,B.bits);
+  let Rb=bits.slice(), Re=Emax;
+  push(snap({hl:'r', r:{bits:Rb.slice(), e:Re, carry:carry},
+    t:CIRC[S.length]+' 尾数相加',
+    d:`同阶后定点小数相加：<code>0.${bstr(A.bits)} + 0.${bstr(B.bits)} = ${carry?1:0}.${bstr(bits)}</code>（阶码仍是 ${Emax}）。`}));
+
+  // 规格化判断
+  if(carry===1){
+    const full=[carry, ...Rb];
+    const nb=full.slice(0,FRAC);          // 右移1位后，新尾数正好是前 FRAC 位
+    const ne=Re+1;
+    push(snap({hl:'r', r:{bits:Rb.slice(), e:Re, carry:1},
+      t:CIRC[S.length]+' 判规格化',
+      d:`结果形如 <code>1.${bstr(Rb)}</code>，<b>尾数溢出</b>（≥1），不是规格化形态。需要 <b>右规</b>：尾数右移 1 位、阶码 +1。`}));
+    Rb=nb; Re=ne;
+    push(snap({hl:'r', r:{bits:Rb.slice(), e:Re, carry:0},
+      t:CIRC[S.length]+' 右规完成',
+      d:`右规后 = <code>0.${bstr(Rb)} × 2<sup>${Re}</sup></code>，又回到 <b>0.1xxx</b> 规格化形态。<br>
+         ⚠️ 注意：<b>尾数溢出不算真溢出</b>，右规一下就修好了；真溢出要看阶码。`}));
+  } else if(Rb[0]===0 && Rb.some(v=>v===1)){
+    // 左规（本例一般不出现，保险处理）
+    let nb=Rb.slice(), ne=Re, g=0;
+    while(nb[0]===0 && g++<FRAC){ nb=[...nb.slice(1),0]; ne--; }
+    push(snap({hl:'r', r:{bits:Rb.slice(), e:Re, carry:0},
+      t:CIRC[S.length]+' 判规格化',
+      d:`结果首位是 0（<code>0.0xxx</code>），<b>不是规格化</b>形态，需要 <b>左规</b>：尾数左移、阶码减。`}));
+    Rb=nb; Re=ne;
+    push(snap({hl:'r', r:{bits:Rb.slice(), e:Re, carry:0},
+      t:CIRC[S.length]+' 左规完成',
+      d:`左规后 = <code>0.${bstr(Rb)} × 2<sup>${Re}</sup></code>。`}));
+  } else {
+    push(snap({hl:'r', r:{bits:Rb.slice(), e:Re, carry:0},
+      t:CIRC[S.length]+' 判规格化',
+      d:`结果首位是 1（<code>0.1xxx</code>），已经是<b>规格化</b>形态 ✓ 无需左右规。`}));
+  }
+
+  // 溢出判别 + 结果
+  const val = Rb.reduce((s,b,i)=>s+b*Math.pow(2,-(i+1)),0)*Math.pow(2,Re);
+  const over = { overflow:false, underflow:false };
+  if(Re > E_MAX) over.overflow = true;
+  else if(Re < E_MIN) over.underflow = true;
+  let label, dTxt;
+  if(over.overflow){
+    label = '溢出判别 —— ⚠️ 阶码上溢（真溢出）';
+    dTxt = `溢出只看<b>阶码</b>：结果阶码 = <b>${Re}</b>，超过本机阶码上限 <b>+${E_MAX}</b> → <b style="color:#f85149">阶码上溢 = 真·溢出</b>！<br>
+            此时计算机必须<b>报错 / 记为无穷大 ∞</b>。<b>右规、舍入都救不回来</b>——这是死局。<br>
+            <span style="color:#6e7681">对比例子 B：那里是「尾数溢出」，右规一下就修好了；这里是「阶码溢出」，性质完全不同。</span>`;
+  } else if(over.underflow){
+    label = '溢出判别 —— ⚠️ 阶码下溢（当 0）';
+    dTxt = `溢出只看<b>阶码</b>：结果阶码 = <b>${Re}</b>，低于本机阶码下限 <b>${E_MIN}</b> → <b style="color:#ffa657">阶码下溢</b>。<br>
+            下溢<b>不报错</b>，结果直接<b>当 0 处理</b>（数太小了，小到超出能表示的范围）。<br>
+            <span style="color:#6e7681">口诀：阶码上溢→溢出报错；阶码下溢→当作 0。</span>`;
+  } else {
+    label = '溢出判别 + 最终结果';
+    dTxt = `溢出只看<b>阶码</b>：阶码 = ${Re}，在正常范围 [${E_MIN}, ${E_MAX}] 内，<b>无溢出</b>。<br>
+            <b>最终结果 = 0.${bstr(Rb)} × 2<sup>${Re}</sup> = ${val}</b>。<br>
+            <span style="color:#6e7681">（舍入：本例无低位丢失，无需舍入）</span>`;
+  }
+  push(snap({hl:'r', r:{bits:Rb.slice(), e:Re, carry:0, over:over},
+    t:CIRC[S.length]+' '+label, d:dTxt}));
+  return S;
+}
+
+// ==================== 渲染 ====================
+const LABELS={a:'A', b:'B', r:'A+B'};
+function drawRow(key, o, hl, shifting){
+  const el=document.getElementById('row-'+key);
+  el.classList.toggle('hl-a', hl && key==='a');
+  el.classList.toggle('hl-b', hl && key==='b');
+  el.classList.toggle('hl-r', hl && key==='r');
+  if(!o || !o.bits){
+    el.innerHTML=`<span class="op-lbl ${key}">${LABELS[key]}</span><span class="op-empty">${key==='r'?'待计算':'—'}</span>`;
+    return;
+  }
+  const intB = (o.carry!=null) ? o.carry : 0;
+  let cells='';
+  for(let i=0;i<FRAC;i++){
+    cells+=`<span class="mcell">${o.bits[i]}<span class="w">2^-${i+1}</span></span>`;
+  }
+  const warn = (o.over && o.over.overflow) ? '<span style="color:#f85149;font-weight:bold;margin-left:10px">⚠️ 阶码上溢 = 真溢出</span>'
+             : (o.over && o.over.underflow) ? '<span style="color:#ffa657;font-weight:bold;margin-left:10px">⚠️ 阶码下溢 → 当作 0</span>' : '';
+  el.innerHTML=`<span class="op-lbl ${key}">${LABELS[key]}</span>`
+    +`<span class="mant"><b class="intb">${intB}</b><span class="dot">.</span>${cells}</span>`
+    +`<span class="expo">× 2<sup>${o.e}</sup></span>`+warn;
+  if(shifting){
+    el.querySelectorAll('.mcell').forEach((c,i)=>{
+      if(i<=(o.shiftDrop||0)) c.classList.add('drop');
+    });
+  }
+}
+
+function clearTimers(){ if(animTimer){ clearTimeout(animTimer); animTimer=null; } }
+
+function render(i){
+  clearTimers();
+  const s=steps[i];
+  drawRow('a', s.a, s.hl==='both'||s.hl==='a');
+  drawRow('b', s.b, s.hl==='both'||s.hl==='b');
+  drawRow('r', s.r, s.hl==='r');
+  document.getElementById('descT').textContent=(s.t||'');
+  document.getElementById('descD').innerHTML=s.d||'';
+  document.getElementById('stepInd').textContent=`步骤 ${i+1} / ${steps.length}`;
+  if(s.shift) playShift(s.shift);
+}
+
+function playShift(sh){
+  const key=sh.key;
+  let bits=sh.before.slice(), e=sh.startE, n=0;
+  // 先显示起始状态
+  drawRow(key, {bits, e}, true);
+  const doStep=()=>{
+    bits=[0, ...bits.slice(0,FRAC-1)];   // 右移1位，末位丢
+    e++;
+    n++;
+    drawRow(key, {bits, e}, true, true);
+    const el=document.getElementById('row-'+key);
+    el.querySelectorAll('.mcell').forEach(c=>c.classList.add('flip'));
+    if(n<sh.times){ animTimer=setTimeout(doStep, 620); }
+    else { animTimer=setTimeout(()=>render(cur), 700); }   // 动画结束回到该步正常态
+  };
+  animTimer=setTimeout(doStep, 650);
+}
+
+// ==================== 控制 ====================
+function load(k){
+  curCase=k;
+  document.querySelectorAll('#grp button').forEach(b=>b.classList.toggle('sel', b.dataset.k===k));
+  steps=buildSteps(k); cur=0; render(0);
+}
+function stepNext(){ stopPlay(); if(cur<steps.length-1){ cur++; render(cur); } }
+function stepPrev(){ stopPlay(); if(cur>0){ cur--; render(cur); } }
+function togglePlay(){
+  if(playing){ stopPlay(); return; }
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  playing=setInterval(()=>{ if(cur>=steps.length-1) stopPlay(); else { cur++; render(cur); } }, 2600);
+}
+function stopPlay(){ if(playing){ clearInterval(playing); playing=null; } document.getElementById('playBtn').textContent='▶ 自动播放'; }
+function reset(){ stopPlay(); steps=buildSteps(curCase); cur=0; render(0); }
+
+document.querySelectorAll('#grp button').forEach(b=>b.onclick=()=>load(b.dataset.k));
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight') stepNext();
+  if(e.key==='ArrowLeft') stepPrev();
+});
+
+load('A');
+</script>
+</body>
+</html>

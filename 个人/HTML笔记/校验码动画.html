@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>校验码 动画 · 码距 / 奇偶校验 / 海明码 / CRC</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d1117; color:#e6edf3;
+    font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    padding:28px 36px; max-width:1120px; margin:0 auto;
+  }
+  h1 { font-size:22px; margin-bottom:6px; }
+  h1 .hl { color:#39c5cf; }
+  .sub { color:#8b949e; font-size:13px; margin-bottom:18px; }
+
+  h2.sec { font-size:17px; margin:32px 0 12px; padding-left:11px; border-left:4px solid #39c5cf; }
+  h2.sec:first-of-type { margin-top:22px; }
+  h2.sec .en { color:#6e7681; font-size:12px; font-weight:normal; margin-left:8px; }
+
+  p { font-size:14px; line-height:1.95; color:#c9d1d9; margin:8px 0; }
+  p b { color:#e6edf3; }
+  code { background:#0d1117; border:1px solid #30363d; border-radius:4px; padding:1px 6px; color:#79c0ff; font-family:Menlo,monospace; font-size:12.5px; }
+
+  .key { background:#39c5cf1a; border-left:3px solid #39c5cf; border-radius:6px; padding:10px 14px; margin:12px 0; font-size:14px; line-height:1.85; }
+  .key.r { background:#f851491a; border-left-color:#f85149; }
+  .key.o { background:#ffa6571a; border-left-color:#ffa657; }
+  .key.g { background:#3fb9501a; border-left-color:#3fb950; }
+
+  .annot { font-family:Menlo,Consolas,monospace; font-size:14px; line-height:2; color:#c9d1d9;
+    background:#161b22; border:1px solid #30363d; border-radius:10px; padding:14px 18px; margin:12px 0; white-space:pre; overflow-x:auto; }
+  .annot .m { color:#79c0ff; } .annot .e { color:#ffa657; } .annot .g { color:#3fb950; }
+  .annot .r { color:#f85149; } .annot .d { color:#6e7681; }
+
+  table.lt { border-collapse:collapse; font-size:12.5px; margin:12px 0; width:100%; }
+  table.lt th,table.lt td { border:1px solid #30363d; padding:7px 10px; text-align:left; }
+  table.lt th { background:#161b22; color:#8b949e; font-weight:normal; }
+  table.lt td { color:#c9d1d9; }
+  table.lt td b { color:#79c0ff; }
+  table.lt tr.hl td { background:#39c5cf0f; }
+
+  .qbox { background:#161b22; border:1px dashed #39c5cf66; border-radius:10px; padding:12px 16px; margin:14px 0; }
+  .qbox .q { font-size:13.5px; line-height:1.9; color:#c9d1d9; }
+  .qbox .q b { color:#39c5cf; }
+  .qbox summary { cursor:pointer; font-size:13px; color:#39c5cf; margin-top:8px; outline:none; }
+  .qbox summary:hover { text-decoration:underline; }
+  .qbox .ans { margin-top:8px; padding-top:8px; border-top:1px dashed #30363d; font-size:13px; line-height:1.9; color:#8b949e; }
+  .qbox .ans b { color:#3fb950; }
+
+  .stage { background:#0f151d; border:1px solid #30363d; border-radius:12px; padding:18px 20px; margin:14px 0; }
+  .ctrl { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .ctrl .tag { font-size:12px; color:#8b949e; }
+  input.bits { background:#0d1117; border:1px solid #30363d; border-radius:7px; color:#79c0ff;
+    font-family:Menlo,monospace; font-size:15px; padding:7px 11px; width:150px; letter-spacing:2px; }
+  input.bits:focus { outline:none; border-color:#39c5cf; }
+  input.poly { width:110px; }
+  button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:8px; padding:7px 14px;
+    font-size:13px; cursor:pointer; transition:all .2s; }
+  button:hover { background:#30363d; border-color:#8b949e; }
+  button.primary { background:#238636; border-color:#2ea043; font-weight:bold; }
+  button.primary:hover { background:#2ea043; }
+  button.warn { background:#8b2c2c; border-color:#f85149; }
+  .err { color:#f85149; font-size:12.5px; }
+
+  .bits-row { display:flex; gap:5px; flex-wrap:wrap; align-items:center; margin:9px 0; }
+  .bl { font-size:12px; color:#8b949e; min-width:56px; font-family:Menlo,monospace; }
+  .bcell { width:36px; height:42px; border-radius:7px; display:flex; align-items:center; justify-content:center;
+    font-family:Menlo,monospace; font-size:19px; font-weight:bold; background:#161b22; border:1.5px solid #30363d; color:#e6edf3;
+    position:relative; transition:all .25s; }
+  .bcell .w { position:absolute; bottom:-14px; left:0; right:0; text-align:center; font-size:8px; color:#6e7681; font-weight:normal; }
+  .bcell.data { border-color:#30363d; color:#c9d1ff; }
+  .bcell.p { border-color:#ffa65788; color:#ffa657; background:#ffa65710; }
+  .bcell.d { border-color:#79c0ff66; color:#79c0ff; }
+  .bcell.err { border-color:#f85149 !important; color:#f85149 !important; background:#f8514918; }
+  .bcell.fix { border-color:#3fb950 !important; color:#3fb950 !important; box-shadow:0 0 10px #3fb95066; }
+  .bcell.flip { animation:flip .35s ease; }
+  @keyframes flip { 0%{transform:rotateY(0)} 50%{transform:rotateY(90deg)} 100%{transform:rotateY(0)} }
+  .posrow { display:flex; gap:5px; margin:0 0 2px 62px; }
+  .posrow span { width:36px; text-align:center; font-size:9px; color:#6e7681; font-family:Menlo,monospace; }
+
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; margin-top:12px; }
+  .card h3 { font-size:14.5px; margin-bottom:9px; }
+  .card ul,.card ol { margin-left:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .card b { color:#e6edf3; }
+  .g { color:#3fb950; } .o { color:#ffa657; } .b { color:#79c0ff; } .r2 { color:#f85149; } .p { color:#bc8cff; }
+
+  .div-view { font-family:Menlo,Consolas,monospace; font-size:16px; line-height:1.7; color:#c9d1d9;
+    background:#0d1117; border:1px solid #30363d; border-radius:10px; padding:16px 18px; margin:10px 0; overflow-x:auto; white-space:pre; }
+  .div-view .cur { color:#ffa657; font-weight:bold; }
+  .div-view .done { color:#6e7681; }
+  .div-view .rem { color:#3fb950; font-weight:bold; }
+  .step-ind { font-family:Menlo,monospace; font-size:12.5px; color:#8b949e; margin-left:auto; }
+</style>
+</head>
+<body>
+
+<h1>校验码 <span class="hl">码距 · 奇偶 · 海明 · CRC</span></h1>
+<div class="sub">软考 · 计算机组成原理 ｜ 1.1.4 ｜ 从「为什么要校验」讲到能自己算海明码和 CRC</div>
+
+<!-- ========== 总览 ========== -->
+<h2 class="sec">⓪ 三种校验码，先有个印象</h2>
+<p>数据在传输/存储时可能出错（0 变 1、1 变 0）。校验码就是<b>在原始数据里掺入一些“校验位”</b>，让接收方能发现错误、甚至把错误改回来。</p>
+<table class="lt">
+<tr><th>校验码</th><th>能做什么</th><th>开销</th><th>典型用途</th></tr>
+<tr><td><b>奇偶校验</b></td><td>只能<b>发现</b>奇数个位出错，<b>不能纠错</b></td><td>1 位</td><td>简单场合、串口</td></tr>
+<tr><td><b>海明码</b></td><td>能<b>发现并纠正 1 位错</b>（能定位到哪一位）</td><td>k 位校验</td><td>内存 ECC</td></tr>
+<tr><td><b>CRC</b></td><td><b>检错能力很强</b>，但不能纠错</td><td>r 位</td><td>网络通信、磁盘存储</td></tr>
+</table>
+<div class="key">🔑 三个都要用到一个根本概念：<b>码距</b>。先搞懂它，后面全都顺。</div>
+
+<!-- ========== 码距 ========== -->
+<h2 class="sec">① 码距：合法编码之间“隔多远” <span class="en">最核心的概念</span></h2>
+<p><b>先学会一件事：怎么比较两个码？</b> 把它们<b>上下对齐</b>，一位一位比，数出<b>不同的位数</b>。</p>
+<div class="annot"><span class="d">例：比较 0001 和 0101</span>
+  0 0 0 1
+  0 1 0 1
+    ↑
+  只有第 2 位不同 → 差 <span class="e">1</span> 位
+
+<span class="d">例：比较 0001 和 0010</span>
+  0 0 0 1
+  0 0 1 0
+      ↑ ↑
+  第 3、4 位都不同 → 差 <span class="e">2</span> 位</div>
+
+<h3 style="font-size:14.5px;margin:20px 0 8px;color:#ffa657">那“码距”又是什么？</h3>
+<p><b>定义：</b>一个编码系统里，<b>任意两个合法编码之间，最少</b>差多少位。</p>
+<div class="key o">🔑 关键在“<b>最少</b>”两个字：不是随便挑一对，而是要把<b>所有合法编码两两比较一遍</b>，找出<b>最像的那一对</b>，那个最小的差值才是码距。</div>
+
+<p style="margin-top:14px"><b>看一个具体例子。</b>假设某个编码系统规定，只有这 <b>4 个</b>编码是合法的：</p>
+<div class="annot">合法编码： 0000   0011   1100   1111
+
+<span class="d">两两比较，全部列出来：</span>
+0000 vs 0011 → 差 <span class="e">2</span> 位
+0000 vs 1100 → 差 <span class="e">2</span> 位
+0000 vs 1111 → 差 <span class="e">4</span> 位
+0011 vs 1100 → 差 <span class="e">4</span> 位
+0011 vs 1111 → 差 <span class="e">2</span> 位
+1100 vs 1111 → 差 <span class="e">2</span> 位
+
+最像的一对（0000/0011）差 <span class="e">2</span> 位 → 这套编码的<b>码距 = <span class="g">2</span></b></div>
+
+<p><b>对比：如果合法编码是全部 16 个</b>（就是普通二进制），那 <code>0000</code> 和 <code>0001</code> 只差 1 位，所以码距 = <b>1</b>。教材说的“4 位 8421 码码距为 1”就是这个意思。</p>
+
+<div class="key r">🔑 为什么码距 = 1 很危险？<br>
+因为任意一位出错，结果都会变成<b>另一个合法编码</b>——接收方一看“这是个正常码”，以为没错，<b>完全发现不了</b>。</div>
+
+<div class="key r" style="margin-top:10px">🔑 <b>码距决定检错、纠错能力</b>（背这 3 条）：<br>
+· 要<b>检测</b>出 e 个位出错 → 码距 ≥ <b>e + 1</b>　（码距2→检1位；码距3→检2位）<br>
+· 要<b>纠正</b> t 个位出错 → 码距 ≥ <b>2t + 1</b>　（纠1位至少码距3）<br>
+· 要<b>同时检测 e 个、纠正 t 个</b> → 码距 ≥ <b>e + t + 1</b></div>
+
+<p>直观理解：两个合法编码离得越远（中间隔着越多的“错误点”），出错后就越不容易误撞到另一个合法编码。要纠错 1 位，码距至少得 3——这样即使偏了 1 位，离原来那个也还是最近的，能认回来。</p>
+
+<div class="qbox">
+  <div class="q"><b>自查：</b>某编码系统码距为 4，最多能检测几位错？最多能纠正几位错？</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    检测：d ≥ e+1 → 4 ≥ e+1 → <b>最多检 3 位错</b>。<br>
+    纠正：d ≥ 2t+1 → 4 ≥ 2t+1 → 2t ≤ 3 → t ≤ 1.5 → <b>最多纠 1 位错</b>。<br>
+    （口诀：检错能力 = 码距 − 1；纠错能力 = 码距 ÷ 2 向下取整）
+  </div></details>
+</div>
+
+<!-- ========== 奇偶校验 ========== -->
+<h2 class="sec">② 奇偶校验：最简单，只会“报错”不会“治病”</h2>
+<p><b>做法：</b>在数据后面加 <b>1 位校验位</b>，让整个码里 <b>1 的个数</b>变成奇数（<b>奇校验</b>）或偶数（<b>偶校验</b>）。</p>
+<div class="annot"><span class="d">数据 1011（数一数：1、0、1、1 → 有 3 个 1）</span>
+偶校验：要凑成<b>偶数</b>个 1 → 3 是奇数，还差 1 → 校验位补 <span class="g">1</span> → 码 = 1011<span class="g">1</span>（3+1 = <b>4 个 1</b>，偶数）✓
+奇校验：要凑成<b>奇数</b>个 1 → 3 已经是奇数 → 校验位补 <span class="e">0</span> → 码 = 1011<span class="e">0</span>（3+0 = <b>3 个 1</b>，奇数）✓</div>
+<div class="key o">⚠️ 最容易搞混的一点：<b>“偶校验”是让【数据 + 校验位】加起来 1 的总数是偶数，不是让校验位本身是偶数。</b><br>
+所以 1011 的偶校验位是 <b>1</b>（因为 3 是奇数，要补 1 才变偶数），数字看起来是 1，但总数 4 是偶数。</div>
+<p>加了这个校验位，码距就从 1 变成了 <b>2</b>。按公式 d≥e+1，码距 2 能<b>检测 1 位错</b>。</p>
+<div class="key o">⚠️ 能力边界：<b>只能发现“奇数个”位出错</b>（1、3、5…位），<b>发现不了“偶数个”位出错</b>（2 位同时错，1 的个数奇偶性不变）。而且<b>不能纠错</b>——只知道“有错”，不知道错在哪。</div>
+
+<h3 style="font-size:14.5px;margin:22px 0 8px;color:#ffa657">⚠️ 别和“二维奇偶校验”搞混（一个常被问懵的点）</h3>
+<p>“奇偶校验”其实有<b>两种形态</b>，能力完全不同：</p>
+<table class="lt">
+<tr><th>类型</th><th>校验位</th><th>码距</th><th>能纠错吗</th></tr>
+<tr><td><b>简单奇偶（一维）</b></td><td>只有 1 个</td><td>2</td><td>❌ 不能纠错（本文讲的就是这个）</td></tr>
+<tr><td><b>二维奇偶（水平垂直）</b></td><td>每行每列都有</td><td>4</td><td>✅ 能纠 1 位错</td></tr>
+</table>
+<p style="margin-top:10px">二维为什么能纠错？<b>行、列两个方向交叉定位</b>：</p>
+<div class="annot">        列1  列2  列3   行校验
+行1:     1    0    1   |  0
+行2:     0    <span class="r">0*</span>   1   |  0   <span class="d">← 行2 校验对不上</span>
+行3:     1    1    0   |  0
+        -----------------
+列校验:  0    <span class="r">1*</span>  0        <span class="d">← 列2 校验对不上</span>
+               ↑
+        行2报警 + 列2报警 → 交叉点 = 行2列2 = 出错位置 → 翻回来即可 ✅</div>
+<div class="key o">🔑 记法：<b>考试说“奇偶校验码距=2”，默认指一维简单奇偶 → 结论是“不能纠错”。</b><br>
+只有明确说“水平垂直/二维奇偶”，码距才是 4、才能纠 1 位。</div>
+
+<div class="stage">
+  <div class="ctrl">
+    <span class="tag">输入数据（0/1）：</span>
+    <input class="bits" id="pData" value="1011" maxlength="12">
+    <button class="primary" onclick="calcParity()">计算校验位</button>
+  </div>
+  <div id="pOut"></div>
+</div>
+
+<!-- ========== 海明码 ========== -->
+<h2 class="sec">③ 海明码：能发现、还能<b>定位纠正</b> 1 位错 <span class="en">考试计算重点</span></h2>
+<p><b>思路：</b>在数据位之间<b>插入 k 个校验位</b>，让每个校验位“管”一群数据位（做异或）。出错时，几个校验位的结果组合起来，就能<b>指出出错位置</b>。</p>
+
+<h3 style="font-size:14.5px;margin:18px 0 8px;color:#ffa657">先搞懂公式 2<sup>k</sup> − 1 ≥ n + k（一步一步推）</h3>
+<div class="card">
+<p style="margin:0 0 6px"><b>① 每个校验位 = 一个侦探。</b>它盯着自己管的那群位，最后报告一位结果：管的位都正常报 <code>0</code>，有问题报 <code>1</code>。</p>
+<p style="margin:0 0 6px"><b>② k 个侦探 → k 位报告 → 共 2<sup>k</sup> 种组合。</b>（k=4 时就是 16 种：0000~1111）</p>
+<p style="margin:0 0 6px"><b>③ 为什么减 1？</b>因为 <code>0000</code> 这一种被“<b>没出错</b>”占用了，不能再拿去表示“某位错”。所以只剩 <code>2<sup>k</sup> − 1</code> 种地址可用。</p>
+<p style="margin:0 0 6px"><b>④ 要覆盖多少种“某位错”？</b>一共 n+k 个位置（<b>校验位自己也会错</b>，也要能被定位），所以需要 n+k 个地址。</p>
+<p style="margin:0"><b>⑤ 两边对上：</b><code>2<sup>k</sup> − 1 ≥ n + k</code>。</p>
+</div>
+<div class="annot"><span class="d">代入 n = 8 试算：</span>
+k=3：  2³−1 = 7   要覆盖 8+3 = 11 个位   →  7 ≥ 11 ？<span class="r"> ✗ 不够</span>
+k=4：  2⁴−1 = 15  要覆盖 8+4 = 12 个位   → 15 ≥ 12 ？<span class="g"> ✓ 够</span>
+<span class="d">→ 所以 8 位数据需要 4 个校验位（16 种报告，扣掉全 0，剩 15 个地址盯 12 个位子，还多 3 个）</span></div>
+<div class="key o">🔑 提炼成两句：<b>① 全 0 留给“没出错”，所以要 −1；② 校验位自己也会错，所以是 n+k 不是 n。</b></div>
+
+<h3 style="font-size:14.5px;margin:22px 0 8px;color:#ffa657">再搞懂：校验位为什么放在 2 的幂位置？</h3>
+<div class="card">
+<p style="margin:0 0 6px">因为 <b>任何位置编号，都能拆成 2 的幂之和</b>。拆出来的那几个 2 的幂，正好就是要管它的校验位。</p>
+</div>
+<div class="annot">位置 3  = 1 + 2      → 由 P1、P2 管
+位置 5  = 1 + 4      → 由 P1、P3 管
+位置 6  = 2 + 4      → 由 P2、P3 管
+位置 7  = 1 + 2 + 4  → 由 <span class="e">P1、P2、P3</span> 共同管
+位置 11 = 1 + 2 + 8  → 由 P1、P2、P4 共同管
+
+<span class="d">换成二进制看得更直观（位置 6）：</span>
+6 = 0 1 1 0
+      ↑ ↑   <span class="d">bit 为 1 的位 → 由 P2、P3 管</span></div>
+<div class="key o">🔑 一句话：<b>位置编号的二进制里，哪几位是 1，就由哪几个校验位管。</b><br>
+正因为校验位放在 2 的幂位置，它才能“对上号”——P1 管所有编号 bit0=1 的位，P2 管 bit1=1 的位……</div>
+<div class="key g">🔑 这也解释了<b>纠错原理</b>：位置 7 = 1+2+4，参与它的只有 P1/P2/P3 三个组。所以一旦位置 7 出错，<b>只有这三个组</b>会算出 1，拼起来 <code>0111 = 7</code> —— G 值正好指回位置 7。</div>
+
+<div class="key">🔑 <b>公式：2<sup>k</sup> − 1 ≥ n + k</b>（n = 数据位数，k = 校验位数）。<br>
+即：总共 n+k 个位置，用 k 个校验位能区分出「没出错 + 每一位出错」共 n+k+1 种情况。</div>
+
+<h3 style="font-size:14.5px;margin:18px 0 6px;color:#39c5cf">三条规则（背下来）</h3>
+<table class="lt">
+<tr><th>规则</th><th>内容</th></tr>
+<tr><td><b>① 位置</b></td><td>校验位 P 放在<b>编号是 2 的幂</b>的位置：第 <b>1、2、4、8</b>… 位；数据位按顺序填剩下的位置</td></tr>
+<tr><td><b>② 管辖</b></td><td>第 i 个校验位，管所有「<b>位置编号的二进制第 i 位是 1</b>」的位</td></tr>
+<tr><td><b>③ 校验</b></td><td>偶校验：让每个校验位管的那些位<b>异或结果为 0</b>；按此反推校验位的值</td></tr>
+</table>
+
+<p style="margin-top:14px">以 <b>8 位数据</b>举例（k=4，因为 2⁴−1=15 ≥ 8+4=12）。位置对应关系：</p>
+<div id="hMap"></div>
+
+<!-- ===== 手把手小例子（5位，比8位短，好对照） ===== -->
+<h3 style="font-size:14.5px;margin:26px 0 8px;color:#39c5cf">📝 手把手：用 5 位数据走完整流程（比 8 位好算）</h3>
+<p>设数据 <b>D4 D3 D2 D1 D0 = 1 0 1 1 0</b>（即 D0=0, D1=1, D2=1, D3=0, D4=1）。跟着 5 步走：</p>
+
+<div class="card">
+<p style="margin:0 0 6px"><b>第 1 步 · 定 k 和位置</b>：n=5 → 2<sup>k</sup>−1≥5+k → k=4。校验位占 1、2、4、8 号，数据填其余：</p>
+<div class="annot" style="margin:8px 0">位置:   1    2    3    4    5    6    7    8    9
+内容:  P1   P2   D0   P3   D1   D2   D3   P4   D4</div>
+
+<p style="margin:14px 0 6px"><b>第 2 步 · 每个位置号转二进制，拆出"谁管谁"</b>（第 1 位=1→P1，第 2 位=1→P2，第 3 位=1→P3，第 4 位=1→P4）：</p>
+<div class="annot" style="margin:8px 0">位置 3 = 0 0 1 1   → <span class="e">P1,P2</span> 管（D0）
+位置 5 = 0 1 0 1   → <span class="e">P1,P3</span> 管（D1）
+位置 6 = 0 1 1 0   → <span class="e">P2,P3</span> 管（D2）
+位置 7 = 0 1 1 1   → <span class="e">P1,P2,P3</span> 管（D3）
+位置 9 = 1 0 0 1   → <span class="e">P1,P4</span> 管（D4）
+
+<span class="d">汇总（去掉校验位自己那几行）：</span>
+P1 管：D0, D1, D3, D4        ← 出现 P1 的那些行
+P2 管：D0, D2, D3
+P3 管：D1, D2, D3
+P4 管：D4                    ← 位置9=1001，第4位=1→P4</div>
+
+<p style="margin:14px 0 6px"><b>第 3 步 · 校验位 = 它管的数据位异或</b>（异或：相同得0，不同得1）：</p>
+<div class="annot" style="margin:8px 0">P1 = D0⊕D1⊕D3⊕D4 = 0⊕1⊕0⊕1
+   = (0⊕1)⊕0⊕1 = 1⊕0⊕1 = 1⊕1 = <span class="g">0</span>
+P2 = D0⊕D2⊕D3     = 0⊕1⊕0 = <span class="g">1</span>
+P3 = D1⊕D2⊕D3     = 1⊕1⊕0 = (1⊕1)⊕0 = 0⊕0 = <span class="g">0</span>
+P4 = D4           = <span class="g">1</span></div>
+
+<p style="margin:14px 0 6px"><b>第 4 步 · 填回座位，得到海明码</b>：</p>
+<div class="annot" style="margin:8px 0">位置:   1    2    3    4    5    6    7    8    9
+内容:  P1   P2   D0   P3   D1   D2   D3   P4   D4
+值:    <span class="g">0</span>    <span class="g">1</span>    0    <span class="g">0</span>    1    1    0    <span class="g">1</span>    1
+
+海明码（位置1→9）= <b style="color:#39c5cf;font-size:16px">0 1 0 0 1 1 0 1 1</b></div>
+
+<p style="margin:14px 0 6px"><b>第 5 步 · 接收方验证</b>（把每组重新异或，G 值十进制 = 出错位置，全 0 = 没错）：</p>
+<div class="annot" style="margin:8px 0">G1 = P1⊕D0⊕D1⊕D3⊕D4 = 0⊕0⊕1⊕0⊕1 = <span class="g">0</span>
+G2 = P2⊕D0⊕D2⊕D3    = 1⊕0⊕1⊕0   = <span class="g">0</span>
+G3 = P3⊕D1⊕D2⊕D3    = 0⊕1⊕1⊕0   = <span class="g">0</span>
+G4 = P4⊕D4          = 1⊕1       = <span class="g">0</span>
+→ G4G3G2G1 = 0000 → <span class="g">无错 ✓</span></div>
+</div>
+
+<div class="qbox">
+  <div class="q"><b>自己练一个：</b>数据 <b>D4 D3 D2 D1 D0 = 0 1 0 1 1</b>（D0=1, D1=1, D2=0, D3=1, D4=0），求 P1~P4。</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    P1 = D0⊕D1⊕D3⊕D4 = 1⊕1⊕1⊕0 = <b>1</b><br>
+    P2 = D0⊕D2⊕D3 = 1⊕0⊕1 = <b>0</b><br>
+    P3 = D1⊕D2⊕D3 = 1⊕0⊕1 = <b>0</b><br>
+    P4 = D4 = <b>0</b><br>
+    （异或从左到右一路算，顺序无所谓）
+  </div></details>
+</div>
+
+<div class="stage">
+  <div class="ctrl">
+    <span class="tag">输入 8 位数据 D7~D0：</span>
+    <input class="bits" id="hData" value="01101001" maxlength="8">
+    <button class="primary" onclick="calcHamming()">求海明码</button>
+    <span class="err" id="hErr"></span>
+  </div>
+  <div id="hOut"></div>
+</div>
+
+<p style="margin-top:16px"><b>怎么检出并纠正错误？</b>接收方把每个校验组重新异或一遍，得到 <code>G4 G3 G2 G1</code>：</p>
+<div class="key g">🔑 <code>G4G3G2G1</code> 的十进制值 = <b>出错的位置</b>；若全为 0，说明<b>没出错</b>。找到位置后，把那一<b>位取反</b>，就纠正了。</div>
+
+<div class="stage">
+  <div class="ctrl">
+    <span class="tag">点一位模拟“传输中出错”（再点一次取消）：</span>
+    <button id="injBtn" onclick="toggleInject()">随机注入错误</button>
+    <span class="err" id="injInfo"></span>
+  </div>
+  <div id="hCheck"></div>
+</div>
+
+<!-- ========== CRC ========== -->
+<h2 class="sec">④ CRC：检错能力最强，通信/存储的常客</h2>
+<p><b>做法：</b>选一个<b>生成多项式 G(x)</b>，用它在数据后面算出若干个校验位，拼成 CRC 码。</p>
+<div class="annot"><span class="d">记号：生成多项式 G(x) = x³ + x + 1  ←→ 二进制 <span class="m">1011</span>（有几项，对应位就是 1）</span>
+数据 k 位 + 校验 r 位 = 总共 n 位，记作 (<span class="e">n</span>, <span class="e">k</span>) 码
+<span class="d">本例 r=3（多项式最高次是 x³），所以校验位 3 位</span></div>
+
+<h3 style="font-size:14.5px;margin:16px 0 6px;color:#39c5cf">关键：模 2 运算（就是异或）</h3>
+<div class="key">🔑 <b>模 2 加减 = 按位异或，不进位、不借位</b>：<br>
+<code>0⊕0=0　1⊕1=0　0⊕1=1　1⊕0=1</code>。所以“减”和“加”在这里是一回事。</div>
+
+<h3 style="font-size:14.5px;margin:16px 0 6px;color:#39c5cf">编码三步</h3>
+<div class="card">
+<ol>
+  <li><b>补 0</b>：数据后面补 <b>r 个 0</b>（r = 生成多项式位数 − 1）</li>
+  <li><b>做模 2 除法</b>：补 0 后的数 ÷ 生成多项式（用异或，不借位）</li>
+  <li><b>取余数</b>：余数就是校验位；把它替换掉刚才补的那 r 个 0 → 得到 CRC 码</li>
+</ol>
+</div>
+
+<h3 style="font-size:14.5px;margin:24px 0 6px;color:#3fb950">🐣 小白版手把手：数据 1101 到底怎么算出 CRC 码</h3>
+<p><b>先建立直觉：</b>CRC 本质就是一次「带余数的除法」，只不过和小学除法有一点不同。</p>
+<div class="annot"><span class="d">小学带余数除法：</span>
+13 ÷ 4 = 3 …… 余 1        <span class="d">（用「减法」）</span>
+
+<span class="d">CRC 除法：形状一样，但「减法」换成「异或」</span>
+1 1 0 1                     <span class="d">（异或：相同得0，不同得1）</span>
+1 0 1 1
+───────
+0 1 1 0</div>
+<div class="key g">🔑 <b>为什么用异或？</b>因为电路做异或特别简单——一位一位算，不用管进位/借位。</div>
+
+<p style="margin-top:16px"><b>第 1 步 · 数据后面补 3 个 0</b>（校验位几位？看多项式最高次：G(x)=x³+x+1 最高 3 次 → 补 3 个 0）：</p>
+<div class="annot">数据:  1 1 0 1
+补0:   1 1 0 1 0 0 0     <span class="d">← 先占好 3 个位置，等会儿用余数填</span></div>
+
+<p style="margin-top:16px"><b>第 2 步 · 异或长除法</b>（规则：看当前最左位，是 1 就把除数对齐异或一次；是 0 就跳过往右挪）：</p>
+<div class="annot">第1次  最左位是1 → 异或
+    1 1 0 1 0 0 0
+    1 0 1 1
+    ─────────────
+    0 1 1 0 0 0 0        <span class="d">(1101⊕1011=0110)</span>
+
+第2次  最左的1在第2位 → 对齐异或
+    0 1 1 0 0 0 0
+      1 0 1 1
+    ─────────────
+    0 0 1 1 1 0 0        <span class="d">(1100⊕1011=0111)</span>
+
+第3次  最左的1在第3位 → 对齐异或
+    0 0 1 1 1 0 0
+        1 0 1 1
+    ─────────────
+    0 0 0 1 0 1 0        <span class="d">(1110⊕1011=0101)</span>
+
+第4次  最左的1在第4位 → 对齐异或
+    0 0 0 1 0 1 0
+          1 0 1 1
+    ─────────────
+    0 0 0 0 0 0 1        <span class="d">(1010⊕1011=0001)</span>
+
+<span class="e">停下！剩下的位数不足 4 位（除数是4位），不能再除了</span></div>
+
+<p style="margin-top:16px"><b>第 3 步 · 取余数 = 最后 3 位</b>：</p>
+<div class="annot">剩下的:  0 0 0 0 0 0 1
+                  └─┬─┘
+             最后 3 位 = <span class="g">0 0 1</span>   ← 这就是校验位</div>
+
+<p style="margin-top:16px"><b>第 4 步 · 把余数填回去，拼成 CRC 码</b>：</p>
+<div class="annot">数据    : 1 1 0 1
+校验位  :         0 0 1
+─────────────────────────
+CRC 码  : 1 1 0 1 0 0 1   =  <b style="color:#39c5cf;font-size:16px">1101001</b></div>
+
+<p style="margin-top:16px"><b>接收方怎么查错？</b>拿整串再除以同一个多项式：</p>
+<div class="annot">1101001 ÷ 1011（异或除法）
+  <span class="g">余数 = 000 → 能整除 → 没出错 ✓</span>
+  <span class="r">余数 ≠ 000 → 除不尽 → 出错了 ✗</span></div>
+
+<h3 style="font-size:14.5px;margin:22px 0 6px;color:#3fb950">🐣 验证的「异或除法」到底怎么除？（一步步）</h3>
+<p>规则只有一个动作，反复做：<b>瞄当前最左位，是 1 就把除数对齐异或；是 0 就跳过往右挪一位。</b></p>
+<div class="annot">被除数：<span class="m">1 1 0 1 0 0 1</span>   除数：<span class="e">1 0 1 1</span>
+
+第1步  最左位是1 → 对齐异或
+    1 1 0 1 0 0 1
+    1 0 1 1
+    ─────────────
+    0 1 1 0 0 0 1        <span class="d">(1⊕1=0, 1⊕0=1, 0⊕1=1, 1⊕1=0)</span>
+
+第2步  最左是0，跳过；下一个1在第2位 → 除数右移1格异或
+    0 1 1 0 0 0 1
+      1 0 1 1
+    ─────────────
+    0 0 1 1 1 0 1        <span class="d">(1⊕1=0, 1⊕0=1, 0⊕1=1, 0⊕1=1)</span>
+
+第3步  前两位是0，跳过；1在第3位 → 右移异或
+    0 0 1 1 1 0 1
+        1 0 1 1
+    ─────────────
+    0 0 0 1 0 1 1        <span class="d">(1⊕1=0, 1⊕0=1, 1⊕1=0, 0⊕1=1)</span>
+
+第4步  前三位是0，跳过；1在第4位 → 右移异或
+    0 0 0 1 0 1 1
+          1 0 1 1
+    ─────────────
+    0 0 0 0 0 0 0        <span class="d">(1⊕1=0, 0⊕0=0, 1⊕1=0, 1⊕1=0)</span>
+
+<span class="e">停！除数4位，已到第4位，再往右不够对齐了</span>
+最后 3 位（校验位位数）= <span class="g">0 0 0</span>  →  余数 = 000 → <span class="g">能整除，没出错 ✓</span></div>
+
+<p style="margin-top:10px"><b>对比：如果某一位真的出错了，余数就会非 0</b>（脚本实测）：</p>
+<div class="annot">正确码    1101001  ÷ 1011 → 余数 <span class="g">000</span> → 没出错 ✓
+第3位错 → 1111001  ÷ 1011 → 余数 <span class="r">110</span> → 出错 ✗
+第1位错 → 0101001  ÷ 1011 → 余数 <span class="r">101</span> → 出错 ✗</div>
+
+<div class="key g">🔑 <b>「整除」的准确含义</b>：不是数学上除尽，而是<b>做异或长除法，最后余数全为 0</b>。<br>
+发送方造的码天生余数为 0；接收方一除，余数变非 0 就说明中途被破坏了。</div>
+<div class="key g">🔑 <b>为什么「补0」这招管用？</b>因为 <code>数据补0 = 商×除数 ⊕ 余数</code>，移项得 <code>数据补0 ⊕ 余数 = 商×除数</code>。<br>
+而「数据补0 ⊕ 余数」正好就是「把补的 0 换成余数」→ 所以「数据+余数」一定能被整除。</div>
+<div class="key o">⚠️ CRC 只能<b>检错</b>，不能纠错——除不尽只告诉你「坏了」，不告诉你是哪一位。（这点和海明码相反）</div>
+
+<div class="stage">
+  <div class="ctrl">
+    <span class="tag">数据：</span>
+    <input class="bits" id="cData" value="1101" maxlength="10">
+    <span class="tag">生成多项式：</span>
+    <input class="bits poly" id="cPoly" value="1011" maxlength="6">
+    <button class="primary" onclick="calcCRC()">逐步计算</button>
+    <span class="err" id="cErr"></span>
+  </div>
+  <div class="ctrl">
+    <button onclick="crcStep(-1)">◀ 上一步</button>
+    <button onclick="crcStep(1)">下一步 ▶</button>
+    <button onclick="crcReset()">↺ 重置</button>
+    <span class="step-ind" id="crcInd"></span>
+  </div>
+  <div class="div-view" id="crcOut"></div>
+</div>
+
+<div class="qbox">
+  <div class="q"><b>自查：</b>数据 1101、G(x)=x³+x+1（1011），CRC 码是多少？</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    ① 补 3 个 0 → <code>1101000</code><br>
+    ② 模 2 除法（异或）得余数 <code>001</code><br>
+    ③ CRC 码 = 数据 + 校验位 = <code>1101</code> + <code>001</code> = <b>1101001</b><br>
+    验证：<code>1101001 ÷ 1011</code> 模 2 余数为 000（能整除）✓<br>
+    （点上面的“逐步计算”能看到每一步）
+  </div></details>
+</div>
+
+<!-- ========== 总结 ========== -->
+<h2 class="sec">⑤ 一页总结</h2>
+<table class="lt">
+<tr><th>考点</th><th>记住这一句</th></tr>
+<tr><td>码距</td><td>任意两个合法编码<b>最少</b>差几位</td></tr>
+<tr><td>检错 e 位</td><td>码距 ≥ <b>e + 1</b></td></tr>
+<tr><td>纠错 t 位</td><td>码距 ≥ <b>2t + 1</b></td></tr>
+<tr><td>奇偶校验（一维）</td><td>码距 2，<b>检 1 位错，不能纠错</b>（偶数个错检不出）；二维（水平垂直）码距 4、可纠 1 位</td></tr>
+<tr><td>海明码</td><td><b>2<sup>k</sup>−1 ≥ n+k</b>；校验位在 2 的幂位置；<b>G 值 = 出错位置</b></td></tr>
+<tr><td>CRC</td><td>补 r 个 0 → <b>模 2 除</b>（异或）→ 余数即校验位</td></tr>
+</table>
+
+<script>
+// ==================== 工具 ====================
+const $ = id => document.getElementById(id);
+function xor(a,b){ return a^b; }
+function bArr(s){ return s.split('').map(Number); }
+function bStr(a){ return a.join(''); }
+
+// ==================== ② 奇偶校验 ====================
+function calcParity(){
+  const s = $('pData').value.trim();
+  if(!/^[01]{1,12}$/.test(s)){ $('pOut').innerHTML='<span class="err">请输入 1~12 位的 0/1</span>'; return; }
+  const bits = bArr(s);
+  const ones = bits.reduce((a,b)=>a+b,0);
+  const evenBit = ones % 2 === 0 ? 0 : 1;   // 偶校验：凑成偶数个1
+  const oddBit  = ones % 2 === 1 ? 0 : 1;   // 奇校验：凑成奇数个1
+  const cell = (v,cls,lab,w)=>`<span class="bcell ${cls}" title="${lab}">${v}<span class="w">${w}</span></span>`;
+  let row1 = `<div class="posrow">` + bits.map((_,i)=>`<span>D${bits.length-1-i}</span>`).join('') + `<span>校验</span></div>`;
+  let dCells = bits.map((b,i)=>cell(b,'data','','D'+(bits.length-1-i))).join('');
+  $('pOut').innerHTML =
+    `<div class="bits-row"><span class="bl">数据</span><div class="bits-row" style="margin:0">${dCells}</div></div>`+
+    `<div style="margin-top:10px;font-size:13px;color:#8b949e">原始数据里有 <b style="color:#79c0ff">${ones}</b> 个 1</div>`+
+    `<div class="bits-row" style="margin-top:8px"><span class="bl">偶校验</span><div class="bits-row" style="margin:0">${dCells}`+
+      `<span class="bcell p">${evenBit}<span class="w">P</span></span></div>`+
+      `<span style="font-size:13px;color:#8b949e;margin-left:10px">数据 ${ones} 个 1 + 校验位 ${evenBit} = 共 ${ones+evenBit} 个（偶数 ✓）</span></div>`+
+    `<div class="bits-row" style="margin-top:8px"><span class="bl">奇校验</span><div class="bits-row" style="margin:0">${dCells}`+
+      `<span class="bcell p">${oddBit}<span class="w">P</span></span></div>`+
+      `<span style="font-size:13px;color:#8b949e;margin-left:10px">数据 ${ones} 个 1 + 校验位 ${oddBit} = 共 ${ones+oddBit} 个（奇数 ✓）</span></div>`;
+}
+
+// ==================== ③ 海明码 ====================
+// 位置(1-based) -> 类型/名称。1~12：P1 P2 D0 P3 D1 D2 D3 P4 D4 D5 D6 D7
+const HPOS = {1:['P','P1'],2:['P','P2'],3:['D','D0'],4:['P','P3'],5:['D','D1'],6:['D','D2'],7:['D','D3'],
+              8:['P','P4'],9:['D','D4'],10:['D','D5'],11:['D','D6'],12:['D','D7']};
+// 数据位 D0..D7 在位置
+const DGRE_TO_POS = {0:3,1:5,2:6,3:7,4:9,5:10,6:11,7:12};
+
+function hammingEncode(d){   // d: {D0..D7}
+  const H = new Array(13).fill(0);
+  [0,1,2,3,4,5,6,7].forEach(i=>H[DGRE_TO_POS[i]] = d['D'+i]);
+  H[1] = d.D0^d.D1^d.D3^d.D4^d.D6;
+  H[2] = d.D0^d.D2^d.D3^d.D5^d.D6;
+  H[4] = d.D1^d.D2^d.D3^d.D7;
+  H[8] = d.D4^d.D5^d.D6^d.D7;
+  return H;
+}
+function syndrome(H){
+  const g1 = H[1]^H[3]^H[5]^H[7]^H[9]^H[11];
+  const g2 = H[2]^H[3]^H[6]^H[7]^H[10]^H[11];
+  const g3 = H[4]^H[5]^H[6]^H[7]^H[12];
+  const g4 = H[8]^H[9]^H[10]^H[11]^H[12];
+  return {g:[g1,g2,g3,g4], val: g4*8+g3*4+g2*2+g1};
+}
+
+let H_STATE = { d:null, H:null, injected:null };
+
+function renderMap(){
+  // 位置表 1..12
+  let h='<div style="font-size:13px;color:#8b949e;margin:10px 0 4px">位置编号（H）与内容：</div><div style="overflow-x:auto"><table class="lt" style="width:auto;min-width:640px">';
+  h+='<tr><th>位置</th>'+[1,2,3,4,5,6,7,8,9,10,11,12].map(p=>`<td style="text-align:center"><b>${p}</b></td>`).join('')+'</tr>';
+  h+='<tr><th>二进制</th>'+[1,2,3,4,5,6,7,8,9,10,11,12].map(p=>`<td style="text-align:center;color:#6e7681">${p.toString(2).padStart(4,'0')}</td>`).join('')+'</tr>';
+  h+='<tr><th>内容</th>'+[1,2,3,4,5,6,7,8,9,10,11,12].map(p=>{const t=HPOS[p];return `<td style="text-align:center" class="${t[0]==='P'?'o':'b'}">${t[1]}</td>`}).join('')+'</tr>';
+  h+='</table></div>';
+  h+='<div style="font-size:12.5px;color:#8b949e;margin-top:8px">校验位 P1/P2/P3/P4 分别在位置 1/2/4/8（<b>2 的幂</b>）；数据位 D0~D7 按顺序填其余位置。</div>';
+  $('hMap').innerHTML = h;
+}
+
+function calcHamming(){
+  const s = $('hData').value.trim();
+  if(!/^[01]{8}$/.test(s)){ $('hErr').textContent='请输入 8 位 0/1'; return; }
+  $('hErr').textContent='';
+  const d={}; for(let i=0;i<8;i++) d['D'+i] = +s[7-i];   // s[0]=D7 ... s[7]=D0
+  const H = hammingEncode(d);
+  H_STATE = {d, H, injected:null};
+  drawHammingResult();
+  $('injBtn').disabled=false;
+}
+
+function drawHammingResult(){
+  const {H, injected} = H_STATE;
+  const cell=(v,pos)=>{
+    const t=HPOS[pos];
+    let cls = t[0]==='P' ? 'p' : 'd';
+    if(injected===pos) cls='err';
+    return `<span class="bcell ${cls}">${v}<span class="w">${t[1]}</span></span>`;
+  };
+  let posRow='<div class="posrow">'+[12,11,10,9,8,7,6,5,4,3,2,1].map(p=>`<span>${p}</span>`).join('')+'</div>';
+  let cells=[12,11,10,9,8,7,6,5,4,3,2,1].map(p=>cell(H[p],p)).join('');
+  const order=[12,11,10,9,8,7,6,5,4,3,2,1];
+  const code = order.map(p=>H[p]).join('');
+
+  // 公式说明
+  const d=H_STATE.d;
+  const f=(a)=>a;
+  const eq = `P1 = D0⊕D1⊕D3⊕D4⊕D6 = ${d.D0}⊕${d.D1}⊕${d.D3}⊕${d.D4}⊕${d.D6} = ${H[1]}
+P2 = D0⊕D2⊕D3⊕D5⊕D6 = ${d.D0}⊕${d.D2}⊕${d.D3}⊕${d.D5}⊕${d.D6} = ${H[2]}
+P3 = D1⊕D2⊕D3⊕D7 = ${d.D1}⊕${d.D2}⊕${d.D3}⊕${d.D7} = ${H[4]}
+P4 = D4⊕D5⊕D6⊕D7 = ${d.D4}⊕${d.D5}⊕${d.D6}⊕${d.D7} = ${H[8]}`;
+
+  $('hOut').innerHTML =
+    `<div style="font-size:13px;color:#8b949e;margin-bottom:6px">① 先按公式求 4 个校验位：</div>`+
+    `<div class="annot" style="margin:8px 0">${eq}</div>`+
+    `<div style="font-size:13px;color:#8b949e;margin:10px 0 4px">② 拼成完整海明码（H12 → H1）：</div>`+
+    posRow+
+    `<div class="bits-row" style="margin:0">${cells}</div>`+
+    `<div style="margin-top:12px;font-family:Menlo,monospace;font-size:16px">海明码 = <b style="color:#39c5cf">${code}</b></div>`;
+
+  drawCheck();
+}
+
+function drawCheck(){
+  const {H, injected} = H_STATE;
+  const Hc = H.slice();                 // 接收到的（可能被改动）
+  if(injected) Hc[injected] ^= 1;
+  const {g, val} = syndrome(Hc);
+  const pos = val;
+  const hasErr = val !== 0;
+
+  let posRow='<div class="posrow">'+[12,11,10,9,8,7,6,5,4,3,2,1].map(p=>`<span>${p}</span>`).join('')+'</div>';
+  let cells=[12,11,10,9,8,7,6,5,4,3,2,1].map(p=>{
+    const t=HPOS[p]; let cls = t[0]==='P'?'p':'d';
+    if(injected===p) cls='err';
+    return `<span class="bcell ${cls}">${Hc[p]}<span class="w">${t[1]}</span></span>`;
+  }).join('');
+  const gStr = g.join('');
+
+  let msg;
+  if(!hasErr){
+    msg = `<div class="key g">✅ <b>G4G3G2G1 = ${gStr}（十进制 ${val}）→ 无错</b>，数据正确。</div>`;
+  } else {
+    const fixed = Hc.slice(); fixed[pos] ^= 1;
+    const fixedCode = [12,11,10,9,8,7,6,5,4,3,2,1].map(p=>fixed[p]).join('');
+    msg = `<div class="key r">❌ <b>G4G3G2G1 = ${gStr}（十进制 ${val}）→ 第 ${val} 位出错！</b><br>
+      出错的是 <b>${HPOS[pos][1]}</b>。把它取反即可纠正 → 纠正后海明码 = <b style="color:#3fb950">${fixedCode}</b></div>`;
+  }
+
+  $('hCheck').innerHTML =
+    `<div style="font-size:13px;color:#8b949e;margin-bottom:6px">接收方按校验组重新异或，算出 G：</div>`+
+    `<div class="annot" style="margin:8px 0">G1 = P1⊕D0⊕D1⊕D3⊕D4⊕D6 = ${g[0]}
+G2 = P2⊕D0⊕D2⊕D3⊕D5⊕D6 = ${g[1]}
+G3 = P3⊕D1⊕D2⊕D3⊕D7     = ${g[2]}
+G4 = P4⊕D4⊕D5⊕D6⊕D7     = ${g[3]}</div>`+
+    `<div style="font-size:13px;color:#8b949e;margin:10px 0 4px">收到的海明码：</div>`+
+    posRow+
+    `<div class="bits-row" style="margin:0">${cells}</div>`+
+    `<div style="margin-top:12px">${msg}</div>`;
+
+  $('injInfo').textContent = injected ? `已把第 ${injected} 位（${HPOS[injected][1]}）翻转` : '';
+}
+
+function toggleInject(){
+  if(!H_STATE.H) return;
+  if(H_STATE.injected){ H_STATE.injected=null; }
+  else { H_STATE.injected = 1 + Math.floor(Math.random()*12); }
+  drawHammingResult();
+}
+window.toggleInject = toggleInject;
+
+// ==================== ④ CRC ====================
+let CRC = { steps:[], cur:0, dividend:null, poly:null, r:0 };
+
+function calcCRC(){
+  const ds = $('cData').value.trim(), ps = $('cPoly').value.trim();
+  if(!/^[01]{2,10}$/.test(ds)){ $('cErr').textContent='数据请输入 2~10 位 0/1'; return; }
+  if(!/^1[01]{1,5}$/.test(ps)){ $('cErr').textContent='多项式须以 1 开头，2~6 位'; return; }
+  $('cErr').textContent='';
+  const data = bArr(ds), poly = bArr(ps), r = poly.length-1;
+  const dividend = data.concat(new Array(r).fill(0));
+  // 逐步模2除法
+  const steps = [];
+  let cur = dividend.slice();
+  const n = cur.length, m = poly.length;
+  steps.push({arr:cur.slice(), pos:-1, note:'初始：数据后补 ' + r + ' 个 0'});
+  for(let i=0; i<=n-m; i++){
+    if(cur[i]===1){
+      const before = cur.slice();
+      for(let j=0;j<m;j++) cur[i+j] ^= poly[j];
+      steps.push({arr:cur.slice(), pos:i, note:`第 ${i+1} 次：当前位是 1，异或生成多项式`});
+    }
+  }
+  const remainder = cur.slice(n-m+1);
+  CRC = { steps, cur:0, dividend, poly, r, data };
+  renderCRC();
+}
+function crcStep(d){
+  CRC.cur = Math.max(0, Math.min(CRC.steps.length-1, CRC.cur+d));
+  renderCRC();
+}
+function crcReset(){ CRC.cur=0; renderCRC(); }
+function renderCRC(){
+  if(!CRC.steps.length){ $('crcOut').textContent='（输入数据后点「逐步计算」）'; $('crcInd').textContent=''; return; }
+  const {steps, cur, dividend, poly, r, data} = CRC;
+  const n = dividend.length, m = poly.length;
+  const pad = ' '.repeat(n);
+  let out = [];
+  out.push(`<span class="d">① 被除数 = 数据 + ${r} 个 0：</span>  ${dividend.join('')}`);
+  out.push(`<span class="d">② 生成多项式：</span>                ${poly.join('')}   <span class="d">(r = ${r} 位校验)</span>`);
+  out.push('');
+  out.push(`<span class="d">③ 模 2 除法（异或，不借位）：</span>`);
+  out.push(`  ${pad}  <span class="d">← 初始</span>`);
+  out.push(`  ${dividend.join('')}`);
+  for(let k=1;k<=cur;k++){
+    const st = steps[k];
+    const aligned = new Array(n).fill(' ');
+    for(let j=0;j<m;j++) if(st.pos+j<n) aligned[st.pos+j] = poly[j];
+    const alignStr = aligned.map((v,i)=> v===' '?' ':v).join('');
+    out.push('');
+    out.push(`  <span class="e">⊕ ${alignStr}</span>   <span class="d">第 ${st.pos+1} 位是 1 → 异或多项式</span>`);
+    out.push(`    ${'─'.repeat(n)}`);
+    out.push(`    ${st.arr.map((b,i)=> i<st.pos ? `<span class="done">${b}</span>` : b).join('')}`);
+  }
+  const remArr = steps[steps.length-1].arr.slice(n-m+1);
+  const crcCode = data.join('') + remArr.join('');
+  out.push('');
+  out.push(`  <span class="rem">④ 余数（校验位）= ${remArr.join('')}</span>`);
+  out.push(`  <b>⑤ CRC 码 = 数据 + 校验位 = ${data.join('')} + ${remArr.join('')} = <span style="color:#39c5cf;font-size:18px">${crcCode}</span></b>`);
+  $('crcOut').innerHTML = out.join('\n');
+  $('crcInd').textContent = `步骤 ${cur+1} / ${steps.length}`;
+}
+
+// ==================== 初始化 ====================
+renderMap();
+calcParity();
+calcHamming();
+calcCRC();
+window.calcParity=calcParity; window.calcHamming=calcHamming; window.calcCRC=calcCRC;
+window.crcStep=crcStep; window.crcReset=crcReset;
+$('injBtn').disabled = true;
+</script>
+</body>
+</html>

@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>存储系统 Cache 动画 · 命中率 / 平均访问时间</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d1117; color:#e6edf3;
+    font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    padding:28px 36px; max-width:1120px; margin:0 auto;
+  }
+  h1 { font-size:22px; margin-bottom:6px; }
+  h1 .hl { color:#39c5cf; }
+  .sub { color:#8b949e; font-size:13px; margin-bottom:18px; }
+  h2.sec { font-size:17px; margin:32px 0 12px; padding-left:11px; border-left:4px solid #39c5cf; }
+  h2.sec:first-of-type { margin-top:20px; }
+  h2.sec .en { color:#6e7681; font-size:12px; font-weight:normal; margin-left:8px; }
+  p { font-size:14px; line-height:1.95; color:#c9d1d9; margin:8px 0; }
+  p b { color:#e6edf3; }
+  code { background:#0d1117; border:1px solid #30363d; border-radius:4px; padding:1px 6px; color:#79c0ff; font-family:Menlo,monospace; font-size:12.5px; }
+  .key { background:#39c5cf1a; border-left:3px solid #39c5cf; border-radius:6px; padding:10px 14px; margin:12px 0; font-size:14px; line-height:1.85; }
+  .key.r { background:#f851491a; border-left-color:#f85149; }
+  .key.o { background:#ffa6571a; border-left-color:#ffa657; }
+  .key.g { background:#3fb9501a; border-left-color:#3fb950; }
+  .annot { font-family:Menlo,Consolas,monospace; font-size:13.5px; line-height:2; color:#c9d1d9;
+    background:#161b22; border:1px solid #30363d; border-radius:10px; padding:14px 18px; margin:12px 0;
+    white-space:pre; overflow-x:auto; }
+  .annot .m { color:#79c0ff; } .annot .e { color:#ffa657; } .annot .g { color:#3fb950; }
+  .annot .r { color:#f85149; } .annot .d { color:#6e7681; } .annot .p { color:#bc8cff; }
+
+  table.lt { border-collapse:collapse; font-size:12.5px; margin:12px 0; width:100%; }
+  table.lt th,table.lt td { border:1px solid #30363d; padding:7px 10px; text-align:left; vertical-align:top; }
+  table.lt th { background:#161b22; color:#8b949e; font-weight:normal; }
+  table.lt td { color:#c9d1d9; }
+  table.lt td b { color:#79c0ff; }
+  table.lt tr.hl td { background:#39c5cf0f; }
+
+  .qbox { background:#161b22; border:1px dashed #39c5cf66; border-radius:10px; padding:12px 16px; margin:14px 0; }
+  .qbox .q { font-size:13.5px; line-height:1.9; color:#c9d1d9; }
+  .qbox .q b { color:#39c5cf; }
+  .qbox summary { cursor:pointer; font-size:13px; color:#39c5cf; margin-top:8px; outline:none; }
+  .qbox summary:hover { text-decoration:underline; }
+  .qbox .ans { margin-top:8px; padding-top:8px; border-top:1px dashed #30363d; font-size:13px; line-height:1.9; color:#8b949e; }
+  .qbox .ans b { color:#3fb950; }
+
+  /* ---- 存储层次金字塔 ---- */
+  .pyr { display:flex; flex-direction:column; align-items:center; gap:7px; margin:16px 0 6px; }
+  .pyr .lvl { border-radius:8px; padding:9px 14px; font-size:13px; display:flex; justify-content:space-between;
+    align-items:center; gap:14px; border:1px solid #30363d; }
+  .pyr .lvl .n { font-weight:bold; }
+  .pyr .lvl .mt { color:#8b949e; font-size:11.5px; font-family:Menlo,monospace; }
+  .pyr .w1 { width:36%; background:#1f6feb2e; border-color:#1f6feb55; }
+  .pyr .w2 { width:54%; background:#39c5cf26; border-color:#39c5cf55; }
+  .pyr .w3 { width:72%; background:#a371f726; border-color:#a371f755; }
+  .pyr .w4 { width:90%; background:#db6d2826; border-color:#db6d2855; }
+  .pyr .axis { display:flex; justify-content:space-between; width:90%; font-size:11.5px; color:#6e7681; margin-top:2px; }
+
+  /* ---- 控制器 ---- */
+  .ctrl { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .ctrl .tag { font-size:12.5px; color:#8b949e; }
+  .ctrl .tag b { color:#39c5cf; font-family:Menlo,monospace; font-size:14px; }
+  input.num { background:#0d1117; border:1px solid #30363d; border-radius:7px; color:#79c0ff;
+    font-family:Menlo,monospace; font-size:15px; padding:7px 11px; width:88px; text-align:center; }
+  input.num:focus { outline:none; border-color:#39c5cf; }
+  input[type=range] { -webkit-appearance:none; height:6px; border-radius:3px; background:#21262d; outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+    background:#39c5cf; cursor:pointer; border:2px solid #0d1117; box-shadow:0 0 0 1px #39c5cf88; }
+  button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:8px; padding:7px 14px;
+    font-size:13px; cursor:pointer; transition:all .2s; font-family:inherit; }
+  button:hover { background:#30363d; border-color:#8b949e; }
+  button.primary { background:#238636; border-color:#2ea043; font-weight:bold; }
+  button.primary:hover { background:#2ea043; }
+
+  .stage { background:#0f151d; border:1px solid #30363d; border-radius:12px; padding:18px 20px; margin:14px 0; }
+  .stat { display:flex; gap:16px; flex-wrap:wrap; margin-top:10px; }
+  .stat .it { background:#161b22; border:1px solid #30363d; border-radius:9px; padding:9px 15px; }
+  .stat .it .l { font-size:11.5px; color:#8b949e; }
+  .stat .it .v { font-size:19px; font-weight:bold; font-family:Menlo,monospace; color:#39c5cf; }
+  .stat .it .v.warn { color:#ffa657; }
+  .stat .it .v.ok { color:#3fb950; }
+
+  /* ---- 贡献条形图 ---- */
+  .bars { margin-top:14px; }
+  .bar-row { display:flex; align-items:center; gap:10px; margin:7px 0; font-size:12.5px; }
+  .bar-row .nm { width:132px; flex:none; color:#8b949e; }
+  .bar-row .track { flex:1; height:18px; background:#161b22; border:1px solid #21262d; border-radius:5px; overflow:hidden; display:flex; }
+  .bar-row .seg { height:100%; transition:width .3s; }
+  .bar-row .seg.hit { background:linear-gradient(90deg,#1f6feb,#39c5cf); }
+  .bar-row .seg.miss { background:linear-gradient(90deg,#db6d28,#f85149); }
+  .bar-row .seg.nocache { background:linear-gradient(90deg,#6e7681,#8b949e); }
+  .bar-row .vl { width:74px; flex:none; text-align:right; font-family:Menlo,monospace; color:#e6edf3; }
+
+  /* ---- 访问序列模拟 ---- */
+  .chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .chip { font-family:Menlo,monospace; font-size:11.5px; padding:3px 9px; border-radius:999px; border:1px solid #30363d; }
+  .chip.h { background:#1f6feb33; color:#79c0ff; border-color:#1f6feb66; }
+  .chip.m { background:#f8514933; color:#ff7b72; border-color:#f8514966; }
+
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; margin-top:12px; }
+  .card h3 { font-size:14.5px; margin-bottom:9px; }
+  .card ul,.card ol { margin-left:18px; font-size:13px; line-height:1.9; color:#c9d1d9; }
+  .card b { color:#e6edf3; }
+</style>
+</head>
+<body>
+
+<h1>存储系统与 Cache <span class="hl">平均访问时间</span></h1>
+<div class="sub">软考 · 计算机组成原理 ｜ 1.2.2 存储系统 ｜ 第一章最后一个"必拿计算题"（附磁盘 / 虚拟存储考点）</div>
+
+<!-- ① 存储层次 -->
+<h2 class="sec">① 先搭楼梯：存储器的层次结构</h2>
+<p>CPU 算得飞快，但数据躺在"仓库"里。于是计算机把存储器做成 <b>一栋楼</b>——越往上层越快、越小、越贵。</p>
+<div class="pyr">
+  <div class="lvl w1"><span class="n">CPU 内部寄存器</span><span class="mt">最快 / 最小 / 最贵 · 纳秒级</span></div>
+  <div class="lvl w2"><span class="n">Cache（高速缓存）</span><span class="mt">比主存快 5~10 倍 · KB~MB</span></div>
+  <div class="lvl w3"><span class="n">主存（内存）</span><span class="mt">CPU 可直接访问 · GB 级</span></div>
+  <div class="lvl w4"><span class="n">辅存（磁盘 / SSD / 光盘 / 磁带）</span><span class="mt">最慢 / 最大 / 最便宜 · TB 级</span></div>
+  <div class="axis"><span>↑ 速度递减、容量递增、单位价格递减 ↓</span></div>
+</div>
+<table class="lt">
+<tr><th>层次</th><th>生活比喻</th><th>跟谁交互</th></tr>
+<tr><td><b>寄存器</b></td><td>你正握在手里的笔</td><td>CPU 内部，指令直接操作</td></tr>
+<tr><td><b>Cache</b></td><td>桌面上摊开的几本书</td><td>与 CPU：<b>全部由硬件实现</b></td></tr>
+<tr><td><b>主存</b></td><td>身后的书架</td><td>与 Cache：硬件自动搬数据</td></tr>
+<tr><td><b>辅存</b></td><td>楼下的图书馆仓库</td><td>与主存：<b>硬件 + 软件（操作系统）一起实现</b></td></tr>
+</table>
+<div class="key">🔑 <b>一句话背下来</b>：<b>Cache↔主存 的交互全部由硬件实现；主存↔辅存 的交互由硬件和软件结合实现。</b>（教材原话，选择题原题出过）</div>
+<div class="key">🔑 为什么要分层？用"快到贵的"挡住大部分访问，用"慢到便宜的"兜底 → <b>速度接近 Cache，容量和价格接近辅存</b>。</div>
+
+<!-- ② 为什么要有 Cache -->
+<h2 class="sec">② Cache 到底解决什么问题 <span class="en">why cache</span></h2>
+<div class="annot"><span class="d">CPU 的速度 ≈ 0.3ns 一条指令级别</span>
+主存速度  ≈ 比 CPU 慢<b>一两个数量级</b>
+Cache 速度 ≈ 比主存快 <span class="g">5 ~ 10 倍</span>（教材原话，用快速半导体存储器做成）
+
+所以：<span class="m">Cache 卡在 CPU 和主存之间，当"中转站"</span>
+      目的：<span class="g">缓解 CPU 与主存速度不匹配</span>（注意 ≠ 解决容量不够！）</div>
+<div class="key r">⚠️ <b>最常见的一对送分题 + 送命题</b>：<br>
+· 设置 <b>Cache</b> 的目的 = 缓解 <b>CPU 与主存的速度</b> 差异<br>
+· 设置 <b>虚拟存储器</b> 的目的 = 解决 <b>主存容量</b> 不足（让程序员写程序时不受物理内存大小限制）</div>
+
+<p><b>为什么 Cache 真能省时间？——局部性原理</b></p>
+<table class="lt">
+<tr><th>局部性</th><th>含义</th><th>例子</th></tr>
+<tr><td><b>时间局部性</b></td><td>刚访问过的，很可能马上再访问</td><td>循环体里的变量 <code>i</code>、<code>sum</code></td></tr>
+<tr><td><b>空间局部性</b></td><td>访问了某个地址，邻居地址也快被访问</td><td>数组 <code>a[0] a[1] a[2]</code> 连着读；顺序执行的指令</td></tr>
+</table>
+<div class="key g">🔑 程序运行有局部性 → 把"当前最活跃的一小撮"放进 Cache → 绝大多数访问都能命中。</div>
+
+<p><b>教材给 Cache 的 4 个特点（概念题必背）</b></p>
+<table class="lt">
+<tr><th>维度</th><th>Cache 的取值</th></tr>
+<tr><td>位置</td><td>位于 <b>CPU 与主存之间</b></td></tr>
+<tr><td>容量</td><td>几千字节 ~ 几兆字节（KB~MB）</td></tr>
+<tr><td>速度</td><td>比主存快 <b>5~10 倍</b>，由快速半导体存储器构成</td></tr>
+<tr><td>内容</td><td>主存局部域的 <b>副本</b>，对程序员 <b>透明</b>（看不见、不用管、加 Cache 不改变程序语义）</td></tr>
+</table>
+<div class="key">🔑 一句话：<b>Cache 是"主存的副本"，由硬件自动管理，对程序员透明</b>。所以程序里永远看不到"把数据存到 Cache"这种指令。</div>
+
+<!-- ③ 核心公式 -->
+<h2 class="sec">③ 主角登场：命中率与平均访问时间</h2>
+<p>先定义两个词：</p>
+<div class="annot">命中（Hit）  ：CPU 要的数据在 Cache 里  → 直接读 Cache，快
+未命中（Miss）：CPU 要的数据不在 Cache 里 → 得去主存拿，慢
+
+命中率 <span class="m">H</span> = 命中次数 ÷ 总访问次数     （未命中率 = 1 − H）
+
+t<span class="d">c</span> = Cache 的存取时间（命中时花的时间）
+t<span class="d">m</span> = 主存的访问时间（未命中时要花的时间）</div>
+
+<p><b>核心公式（模型 A：查 Cache 与查主存同时启动）</b></p>
+<div class="key g">🔑 <code>t<sub>a</sub> = H · t<sub>c</sub> + (1 − H) · t<sub>m</sub></code>　←　教材《软件设计师教程》主公式</div>
+<p>为什么长这样？就是一次<b>加权平均</b>：</p>
+<div class="annot"><span class="d">想象 100 次访问，按概率拆开：</span>
+
+  H = 0.98  →  <span class="m">98 次命中</span>，每次花 t<span class="d">c</span> = 1ns  →  98 × 1 = 98ns
+               <span class="e">2 次未命中</span>，每次花 t<span class="d">m</span> = 10ns →   2 × 10 = 20ns
+                总计 118ns / 100 次 = <span class="g">1.18ns</span>   ← 平均每次访问
+
+  化成公式：t<span class="d">a</span> = 0.98×1 + 0.02×10 = H·t<span class="d">c</span> + (1−H)·t<span class="d">m</span> = <span class="g">1.18ns</span>
+
+<span class="d">对比：没有 Cache 时，每次都去主存 → 平均 10ns</span>
+      有了 Cache，平均只有 1.18ns → 快了约 <span class="g">8.5 倍</span></div>
+<div class="key">🔑 <b>等价变形（算得快）：</b><code>t<sub>a</sub> = t<sub>c</sub> + (1 − H)(t<sub>m</sub> − t<sub>c</sub>)</code><br>
+（命中那一下的钱 <code>t<sub>c</sub></code> 是"保底"必花的，未命中时再多花 <code>t<sub>m</sub>−t<sub>c</sub></code> 的差价）</div>
+
+<div class="key r">⚠️ <b>唯一的坑：模型 B —— "不命中时才启动主存"</b><br>
+若 Cache 未命中后<b>才</b>开始访问主存（先花 t<sub>c</sub> 查 Cache，失败再花 t<sub>m</sub> 访主存），公式变成：<br>
+<code>t<sub>a</sub> = t<sub>c</sub> + (1 − H) · t<sub>m</sub></code>　（同一个例子：1 + 0.02×10 = <b>1.2ns</b>）<br>
+两个模型只差一次 t<sub>c</sub>；<b>做题先看题干有没有说"同时/并行启动"</b>。没说时按教材主公式（模型 A）算。</div>
+
+<!-- ④ 交互计算器 -->
+<h2 class="sec">④ 自己调参数，看平均访问时间怎么变</h2>
+<div class="stage">
+  <div class="ctrl">
+    <span class="tag">命中率 H = <b id="hVal">0.98</b></span>
+    <input type="range" id="rngH" min="0" max="100" value="98" step="1" style="width:280px">
+    <span class="tag">t<sub>c</sub>(ns)</span><input class="num" id="inTc" type="number" value="1" step="0.5" min="0.1">
+    <span class="tag">t<sub>m</sub>(ns)</span><input class="num" id="inTm" type="number" value="10" step="1" min="0.1">
+    <button id="btnReset">重置 0.98 / 1 / 10</button>
+  </div>
+
+  <div class="stat" id="statOut"></div>
+  <div id="calcOut"></div>
+
+  <div class="bars" id="barOut"></div>
+  <div class="annot" style="margin-bottom:0" id="noteOut"></div>
+</div>
+<div class="key">🔑 拖滑条玩几下，记住这个直觉：<b>H 越高，t<sub>a</sub> 越往下掉，但永远 ≥ t<sub>c</sub></b>（命中那一下的钱省不掉）。<br>
+H=100% → t<sub>a</sub>=t<sub>c</sub>；H=0% → t<sub>a</sub>=t<sub>m</sub>。</div>
+
+<!-- ⑤ 反求 -->
+<h2 class="sec">⑤ 反向考法：已知平均时间，反求命中率（变体题）</h2>
+<p>把公式当方程解，就是送分：</p>
+<div class="annot"><span class="d">模型 A：</span> t<span class="d">a</span> = H·t<span class="d">c</span> + (1−H)·t<span class="d">m</span>
+        = t<span class="d">m</span> − H(t<span class="d">m</span> − t<span class="d">c</span>)
+
+<span class="m">解出 H：</span>  H = (t<span class="d">m</span> − t<span class="d">a</span>) / (t<span class="d">m</span> − t<span class="d">c</span>)
+
+<span class="d">例：t_a = 2ns、t_c = 1ns、t_m = 10ns</span>
+     H = (10 − 2) / (10 − 1) = 8/9 ≈ <span class="g">0.889</span>  →  命中率约 88.9%</div>
+<div class="key o">💡 还有更简单的问法："要让平均访问时间不超过 2ns，命中率至少多少？"——同一道题换皮而已。<br>
+另外常考 <b>Cache 效率</b> <code>e = t<sub>c</sub> / t<sub>a</sub></code>（<b>命中率越高越接近 1</b>），以及"加速倍数 = t<sub>m</sub> / t<sub>a</sub>"。</div>
+
+<!-- ⑥ 访问序列模拟 -->
+<h2 class="sec">⑥ 动手玩：真的去访问一次，看命中率怎么来的</h2>
+<p>命中率不是算出来的，是<b>数</b>出来的——下面按你设的 H 随机模拟真实访问：</p>
+<div class="stage">
+  <div class="ctrl">
+    <button class="primary" id="btnOnce">模拟 1 次访问</button>
+    <button id="btnTen">连访问 10 次</button>
+    <button id="btnClear">清零</button>
+    <span class="tag">（概率用上面那个 H）</span>
+  </div>
+  <div class="stat" id="simOut"></div>
+  <div class="chips" id="simLog"></div>
+</div>
+<div class="key">🔑 访问次数越多，实测命中率越贴近 H —— 历史上考的"命中率"就是这么统计出来的。</div>
+
+<!-- ⑦ 概念考点表 -->
+<h2 class="sec">⑦ 概念考点（不打分但必出的选择）</h2>
+<p><b>1) 地址映像：主存地址怎么映射到 Cache</b></p>
+<table class="lt">
+<tr><th>方式</th><th>规则</th><th>优点 / 缺点</th></tr>
+<tr><td><b>直接映像</b></td><td>主存的块只能放到 Cache 中<b>相同块号</b>的位置（一对一）</td><td>地址变换最简单 / 灵活性差（冲突多）</td></tr>
+<tr><td><b>全相联映像</b></td><td>主存任一块可放到 Cache <b>任意一块</b></td><td>最灵活、命中率高 / 变换复杂、比较慢</td></tr>
+<tr><td><b>组相联映像</b></td><td><b>组用直接映像、组内块用全相联</b>（前两者折中）</td><td>性能与成本折中，现代 CPU 常用</td></tr>
+</table>
+<div class="key g">🔑 记法：<b>直接=只能回自己家；全相联=随便住；组相联=先定小区，小区里随便挑</b>。</div>
+
+<p><b>2) 替换算法（Cache 满了，踢谁出去）</b></p>
+<table class="lt">
+<tr><th>算法</th><th>踢谁</th><th>备注</th></tr>
+<tr><td>随机替换</td><td>随机挑一个</td><td>简单，效果一般</td></tr>
+<tr><td><b>先进先出 FIFO</b></td><td>最先进入的</td><td>—</td></tr>
+<tr><td><b>近期最少使用 LRU</b></td><td>最近最久没用的</td><td>效果好，命中率通常最高（常用）</td></tr>
+<tr><td>优化替换</td><td>先跑一遍程序统计后的最优选择</td><td>需要先验信息，理论最优</td></tr>
+</table>
+
+<p><b>3) 写策略（改了 Cache 里的数据怎么办）</b></p>
+<table class="lt">
+<tr><th>策略</th><th>做法</th><th>特点</th></tr>
+<tr><td><b>写直达</b> Write Through</td><td>同时写 Cache 和主存</td><td>简单、一致性好 / 写操作慢</td></tr>
+<tr><td><b>写回</b> Write Back</td><td>只写 Cache，被替换出去时才写回主存</td><td>快 / 需要额外的"脏位"，一致性复杂</td></tr>
+</table>
+
+<p><b>4) 多级 Cache</b></p>
+<div class="annot">CPU 访存顺序：<span class="m">L1 Cache</span> → <span class="m">L2 Cache</span> → <span class="m">L3 Cache</span> → <span class="e">主存</span>
+· L1：离 CPU 最近、<b>容量最小、速度最快</b>（常常再分 指令 Cache / 数据 Cache）
+· L2 / L3：容量更大、速度稍慢，用来提高<b>整体命中率</b>
+· 等级越高越靠近 CPU、越小越快 —— 别记反</div>
+
+<!-- ⑧ 其他存储考点 -->
+<h2 class="sec">⑧ 存储系统其它必考点（顺带打包）</h2>
+
+<p><b>1) 虚拟存储器（考"目的"和"置换算法"）</b></p>
+<div class="annot">目的：解决<span class="g">主存容量不足</span>，给程序员一个"无限大内存"的假象
+原理：CPU 给<span class="m">虚拟地址</span> → <span class="m">MMU</span> 地址变换 → <span class="m">物理地址</span> → 访问主存
+实现方式：<span class="m">页式 / 段式 / 段页式</span>（软考默认页式）
+快表 TLB：用<span class="m">相联存储器</span>存页表项的副本，减少查页表的访存次数</div>
+<table class="lt">
+<tr><th>页面置换算法</th><th>规则</th><th>要点</th></tr>
+<tr><td><b>OPT</b> 最优</td><td>淘汰以后最久不会被访问的页</td><td>理论最优，无法实现（作基准）</td></tr>
+<tr><td><b>LRU</b> 最近最少使用</td><td>淘汰最久没被访问的页</td><td>性能接近 OPT（<b>OPT &gt; LRU &gt; FIFO</b>）</td></tr>
+<tr><td><b>FIFO</b> 先进先出</td><td>淘汰最早进来的页</td><td>可能"加内存反而缺页更多" → <b>Belady 异常（FIFO 独有）</b></td></tr>
+</table>
+<div class="key r">⚠️ 缺页属于 <b>程序性中断（内部异常）</b>，不是外部中断；缺页时由操作系统把该页从辅存调入主存。</div>
+
+<p><b>2) 磁盘：容量与存取时间（大题小题都考）</b></p>
+<div class="annot"><span class="m">容量：</span>
+  格式化容量   = 面数 × (磁道数/面) × (扇区数/道) × (字节数/扇区)   ← 只会用这个
+  非格式化容量 = 面数 × (磁道数/面) × 内圆周长 × 最大位密度        ← 教材版，偏难
+
+<span class="m">存取时间：</span>
+  存取时间 = 寻道时间(search) + 旋转延迟(rotational) + 数据传输时间(transfer)
+  平均旋转延迟 = 旋转半圈时间 = <span class="g">60 / (2 × 转速rpm)</span> 秒</div>
+<div class="annot"><span class="d">例：7200 rpm 的硬盘，平均旋转延迟 = ?</span>
+  转一圈 = 60/7200 s = 8.33 ms
+  平均（半圈）= 8.33/2 ≈ <span class="g">4.17 ms</span>
+
+<span class="d">若每磁道 500 扇区、每扇区 512B，读 1 个扇区要多转？</span>
+  读数 1 个扇区 ≈ 1/500 圈 = 8.33ms / 500 ≈ <span class="g">0.0167 ms</span></div>
+<div class="key">🔑 磁盘排一大半时间花在 <b>寻道</b>（磁臂移动）上；所以文件尽量存在同一柱面上、扇区错开排列（交替编号）都是为了少等一圈。</div>
+
+<p><b>3) RAID（概念选择）</b></p>
+<table class="lt">
+<tr><th>级别</th><th>做法</th><th>一句话</th></tr>
+<tr><td><b>RAID-0</b></td><td>条带化，<b>无冗余</b></td><td>最快、容量 100% / <b>无容错</b>（坏一块全完）</td></tr>
+<tr><td><b>RAID-1</b></td><td>镜像（两块写一样的数据）</td><td>可靠性最高 / 容量利用率 50%</td></tr>
+<tr><td><b>RAID-5</b></td><td>数据 + <b>分布式校验</b>，无专用校验盘</td><td>权衡之选，允许坏 1 块</td></tr>
+<tr><td><b>RAID-6</b></td><td>两级冗余/双重校验</td><td>允许同时坏 <b>2</b> 块</td></tr>
+</table>
+
+<p><b>4) 存储器分类 &amp; SRAM / DRAM（爱考"谁做 Cache"）</b></p>
+<table class="lt">
+<tr><th>分类角度</th><th>类别</th></tr>
+<tr><td>按位置</td><td>内存（主存）／ 外存（辅存）</td></tr>
+<tr><td>按材料</td><td>磁存储器（磁盘、磁带）／ 半导体存储器 ／ 光存储器（光盘）</td></tr>
+<tr><td>按工作方式</td><td>读/写存储器 RAM ／ 只读存储器 ROM</td></tr>
+<tr><td>按存取方式</td><td>随机存取 RAM ／ 顺序存取（磁带）／ 直接存取（磁盘）／ 相联存取</td></tr>
+</table>
+<table class="lt">
+<tr><th>对比</th><th>SRAM 静态</th><th>DRAM 动态</th></tr>
+<tr><td>是否需要刷新</td><td><b>不需要</b></td><td><b>需要</b>（电容会漏电 → 定时刷新）</td></tr>
+<tr><td>速度</td><td>快</td><td>慢一些</td></tr>
+<tr><td>集成度 / 价格</td><td>低 / 贵</td><td>高 / 便宜</td></tr>
+<tr><td>用途</td><td><b>Cache</b></td><td><b>主存</b></td></tr>
+</table>
+<div class="key g">🔑 只记一句：<b>SRAM 做 Cache（快而贵），DRAM 做主存（便宜要刷新）</b>。ROM 家族：固定 ROM → PROM（可编程一次）→ EPROM（紫外擦）→ EEPROM/Flash（电擦）。</div>
+
+<!-- ⑨ 练习 -->
+<h2 class="sec">⑨ 练四道（手算完再点开）</h2>
+<div class="qbox">
+  <div class="q"><b>题1（主公式）：</b>某计算机 Cache 命中率 H = 0.95，Cache 存取时间 10ns，主存访问时间 100ns。求平均访问时间（按教材主公式）。</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    t<sub>a</sub> = H·t<sub>c</sub> + (1−H)·t<sub>m</sub> = 0.95×10 + 0.05×100 = 9.5 + 5 = <b>14.5ns</b><br>
+    （对比：无 Cache 时 100ns，快了约 6.9 倍）
+  </div></details>
+</div>
+<div class="qbox">
+  <div class="q"><b>题2（模型坑）：</b>同题1，但题干说明"<b>Cache 未命中时才启动主存访问</b>"，平均访问时间是多少？</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    换成模型 B：t<sub>a</sub> = t<sub>c</sub> + (1−H)·t<sub>m</sub> = 10 + 0.05×100 = <b>15ns</b><br>
+    差别就在"未命中那次要不要再花一遍 t<sub>c</sub>"——差 0.5ns。
+  </div></details>
+</div>
+<div class="qbox">
+  <div class="q"><b>题3（反求 H）：</b>设 t<sub>c</sub> = 2ns、t<sub>m</sub> = 20ns，要求平均访问时间 <b>不超过 4ns</b>，命中率至少是多少？</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    H = (t<sub>m</sub> − t<sub>a</sub>) / (t<sub>m</sub> − t<sub>c</sub>) = (20 − 4) / (20 − 2) = 16/18 ≈ <b>0.889</b>（88.9%）<br>
+    验算：0.889×2 + 0.111×20 = 1.778 + 2.222 = 4ns ✓
+  </div></details>
+</div>
+<div class="qbox">
+  <div class="q"><b>题4（概念四连）：</b>① 设置 Cache 的目的？② Cache 内容是谁的副本？③ Cache↔主存的交互由谁实现？④ 主存↔辅存的交互由谁实现？</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    ① 缓解 <b>CPU 与主存速度不匹配</b>（速度差异；不是容量！）<br>
+    ② 主存局部域的<b>副本</b>，对程序员<b>透明</b><br>
+    ③ <b>全部由硬件实现</b><br>
+    ④ <b>硬件和软件（操作系统）结合实现</b>
+  </div></details>
+</div>
+<div class="qbox">
+  <div class="q"><b>题5（磁盘）：</b>某硬盘转速 6000 rpm，平均寻道时间 8ms，每磁道 400 个扇区、每扇区 512B。求读 1 个扇区的平均存取时间。</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    ① 转一圈 = 60/6000 s = 10ms；平均旋转延迟 = 10/2 = <b>5ms</b><br>
+    ② 传输一个扇区 = 10ms / 400 = <b>0.025ms</b><br>
+    ③ 平均存取时间 = 8 + 5 + 0.025 ≈ <b>13.03ms</b>（寻道占大头）
+  </div></details>
+</div>
+
+<script>
+var $ = function(id){ return document.getElementById(id); };
+
+/* ============ ④ 平均访问时间计算器 ============ */
+function fmt(x, d){
+  if(!isFinite(x)) return '—';
+  var n = (d === undefined) ? 3 : d;
+  return Number(x.toFixed(n)).toString();
+}
+
+function calcTa(){
+  var H  = parseInt($('rngH').value, 10) / 100;
+  var tc = parseFloat($('inTc').value);
+  var tm = parseFloat($('inTm').value);
+
+  $('hVal').textContent = H.toFixed(2);
+
+  if(!(tc > 0) || !(tm > 0) || !isFinite(tc) || !isFinite(tm)){
+    $('statOut').innerHTML = '<div class="it"><div class="l">输入有误</div><div class="v warn">t_c 与 t_m 需 &gt; 0</div></div>';
+    $('calcOut').innerHTML = '';
+    $('barOut').innerHTML = '';
+    $('noteOut').textContent = '';
+    return;
+  }
+  if(tm < tc){
+    $('noteOut').textContent = '提示：正常情况 t_m > t_c（主存比 Cache 慢）。当前输入 t_m < t_c，仅作数学演示。';
+  } else {
+    $('noteOut').textContent = '';
+  }
+
+  var ta   = H * tc + (1 - H) * tm;            // 模型 A：同时启动
+  var taB  = tc + (1 - H) * tm;                // 模型 B：不命中才启动主存
+  var eff  = tc / ta;                          // Cache 效率
+  var gain = tm / ta;                          // 加速倍数
+
+  $('statOut').innerHTML =
+    '<div class="it"><div class="l">命中率 H</div><div class="v">' + H.toFixed(2) + '</div></div>' +
+    '<div class="it"><div class="l">平均访问时间 t_a（模型A）</div><div class="v ok">' + fmt(ta) + ' ns</div></div>' +
+    '<div class="it"><div class="l">模型B（不命中才访主存）</div><div class="v warn">' + fmt(taB) + ' ns</div></div>' +
+    '<div class="it"><div class="l">Cache 效率 t_c/t_a</div><div class="v">' + (eff * 100).toFixed(1) + '%</div></div>' +
+    '<div class="it"><div class="l">比全访主存快</div><div class="v">' + fmt(gain, 2) + ' 倍</div></div>';
+
+  $('calcOut').innerHTML =
+    '<div class="key g">t_a = H·t_c + (1−H)·t_m = ' + H.toFixed(2) + '×' + fmt(tc, 3) + ' + ' + (1 - H).toFixed(2) + '×' + fmt(tm, 3) +
+    ' = <b>' + fmt(H * tc) + ' + ' + fmt((1 - H) * tm) + ' = ' + fmt(ta) + ' ns</b></div>';
+
+  var hitPart  = H * tc;
+  var missPart = (1 - H) * tm;
+  var scale    = Math.max(tm, ta, taB) || 1;
+
+  function bar(name, a, b, unit){
+    var wa = (a / scale) * 100, wb = (b / scale) * 100;
+    return '<div class="bar-row"><div class="nm">' + name + '</div><div class="track">' +
+      (wa > 0 ? '<div class="seg hit" style="width:' + wa + '%"></div>' : '') +
+      (wb > 0 ? '<div class="seg miss" style="width:' + wb + '%"></div>' : '') +
+      '</div><div class="vl">' + fmt(a + b) + unit + '</div></div>';
+  }
+
+  $('barOut').innerHTML =
+    bar('t_a 拆解 (模型A)', hitPart, missPart, ' ns') +
+    '<div class="bar-row"><div class="nm">t_m 全访主存</div><div class="track">' +
+      '<div class="seg nocache" style="width:' + (tm / scale) * 100 + '%"></div></div>' +
+      '<div class="vl">' + fmt(tm) + ' ns</div></div>' +
+    '<div class="bar-row"><div class="nm">t_c 理想(全命中)</div><div class="track">' +
+      '<div class="seg hit" style="width:' + (tc / scale) * 100 + '%"></div></div>' +
+      '<div class="vl">' + fmt(tc) + ' ns</div></div>';
+}
+
+/* ============ ⑥ 访问序列模拟 ============ */
+var sim = { n:0, hit:0, log:[] };
+function simRender(){
+  var real = sim.n ? (sim.hit / sim.n) : 0;
+  var avg  = sim.n ? (sim.hit * parseFloat($('inTc').value) + (sim.n - sim.hit) * parseFloat($('inTm').value)) / sim.n : 0;
+  $('simOut').innerHTML =
+    '<div class="it"><div class="l">总访问次数</div><div class="v">' + sim.n + '</div></div>' +
+    '<div class="it"><div class="l">命中次数</div><div class="v ok">' + sim.hit + '</div></div>' +
+    '<div class="it"><div class="l">实测命中率</div><div class="v">' + (sim.n ? (real * 100).toFixed(1) + '%' : '—') + '</div></div>' +
+    '<div class="it"><div class="l">实测平均访问时间</div><div class="v">' + (sim.n ? fmt(avg) + ' ns' : '—') + '</div></div>';
+  var tail = sim.log.slice(-40);
+  $('simLog').innerHTML = tail.map(function(v){
+    return '<span class="chip ' + (v ? 'h' : 'm') + '">' + (v ? '命中' : '未命中') + '</span>';
+  }).join('');
+}
+function simDo(times){
+  var H = parseInt($('rngH').value, 10) / 100;
+  for(var i = 0; i < times; i++){
+    var isHit = Math.random() < H;
+    sim.n++;
+    if(isHit) sim.hit++;
+    sim.log.push(isHit);
+  }
+  simRender();
+}
+
+/* ============ 绑定 ============ */
+$('rngH').addEventListener('input', calcTa);
+$('inTc').addEventListener('input', calcTa);
+$('inTm').addEventListener('input', calcTa);
+$('btnReset').addEventListener('click', function(){
+  $('rngH').value = 98;
+  $('inTc').value = 1;
+  $('inTm').value = 10;
+  calcTa();
+});
+$('btnOnce').addEventListener('click', function(){ simDo(1); });
+$('btnTen').addEventListener('click', function(){ simDo(10); });
+$('btnClear').addEventListener('click', function(){
+  sim = { n:0, hit:0, log:[] };
+  simRender();
+});
+
+calcTa();
+simRender();
+</script>
+</body>
+</html>
