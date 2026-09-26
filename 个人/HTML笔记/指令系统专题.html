@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>指令系统专题 · CISC/RISC · 指令格式 · 寻址方式 · 组成原理</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d1117; color:#e6edf3;
+    font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    padding:28px 36px; max-width:1180px; margin:0 auto;
+  }
+  h1 { font-size:22px; margin-bottom:6px; }
+  h1 .hl { color:#39c5cf; }
+  .sub { color:#8b949e; font-size:13px; margin-bottom:14px; }
+  .toc { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:10px 16px; margin-bottom:18px;
+    font-size:12.5px; line-height:2.1; color:#8b949e; }
+  .toc a { color:#79c0ff; text-decoration:none; }
+  .toc a:hover { text-decoration:underline; }
+  .toc b { color:#39c5cf; }
+  .toc .ex { color:#3fb950; }
+
+  h2.sec { font-size:17px; margin:34px 0 12px; padding-left:11px; border-left:4px solid #39c5cf; }
+  h2.sec .en { color:#6e7681; font-size:12px; font-weight:normal; margin-left:8px; }
+  p { font-size:14px; line-height:1.95; color:#c9d1d9; margin:8px 0; }
+  p b { color:#e6edf3; }
+  code { background:#0d1117; border:1px solid #30363d; border-radius:4px; padding:1px 6px; color:#79c0ff; font-family:Menlo,monospace; font-size:12.5px; }
+  .key { background:#39c5cf1a; border-left:3px solid #39c5cf; border-radius:6px; padding:10px 14px; margin:12px 0; font-size:13.5px; line-height:1.85; color:#c9d1d9; }
+  .key.r { background:#f851491a; border-left-color:#f85149; }
+  .key.o { background:#ffa6571a; border-left-color:#ffa657; }
+  .key.g { background:#3fb9501a; border-left-color:#3fb950; }
+  .annot { font-family:Menlo,Consolas,monospace; font-size:13px; line-height:2; color:#c9d1d9;
+    background:#161b22; border:1px solid #30363d; border-radius:10px; padding:13px 18px; margin:12px 0;
+    white-space:pre; overflow-x:auto; }
+  .annot .m { color:#79c0ff; } .annot .e { color:#ffa657; } .annot .g { color:#3fb950; }
+  .annot .r { color:#f85149; } .annot .d { color:#6e7681; } .annot .p { color:#bc8cff; }
+
+  table.lt { border-collapse:collapse; font-size:12.5px; margin:12px 0; width:100%; }
+  table.lt th,table.lt td { border:1px solid #30363d; padding:7px 10px; text-align:left; vertical-align:top; }
+  table.lt th { background:#161b22; color:#8b949e; font-weight:normal; }
+  table.lt td { color:#c9d1d9; }
+  table.lt td b { color:#79c0ff; }
+  table.lt tr.hl td { background:#39c5cf0f; }
+
+  .qbox { background:#161b22; border:1px dashed #39c5cf66; border-radius:10px; padding:12px 16px; margin:14px 0; }
+  .qbox .q { font-size:13.5px; line-height:1.9; color:#c9d1d9; }
+  .qbox .q b { color:#39c5cf; }
+  .qbox summary { cursor:pointer; font-size:13px; color:#39c5cf; margin-top:8px; outline:none; }
+  .qbox summary:hover { text-decoration:underline; }
+  .qbox .ans { margin-top:8px; padding-top:8px; border-top:1px dashed #30363d; font-size:13px; line-height:1.9; color:#8b949e; }
+  .qbox .ans b { color:#3fb950; }
+
+  .vs { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
+  .vs .col { border-radius:10px; padding:12px 16px; font-size:13px; line-height:1.9; }
+  .vs .cisc { background:#db6d281a; border:1px solid #db6d2855; }
+  .vs .risc { background:#3fb9501a; border:1px solid #3fb95055; }
+  .vs .col h3 { font-size:14px; margin-bottom:6px; }
+  .vs .cisc h3 { color:#ffb07c; }
+  .vs .risc h3 { color:#7ee787; }
+  .vs .col ul { margin-left:16px; }
+
+  .memo { margin-top:18px; background:#161b22; border:1px dashed #39c5cf66; border-radius:10px; padding:14px 18px;
+    font-size:13.5px; line-height:2; color:#c9d1d9; }
+  .memo b { color:#39c5cf; }
+  .backtop { position:fixed; right:24px; bottom:24px; background:#238636; border:1px solid #2ea043;
+    color:#fff; border-radius:50%; width:46px; height:46px; font-size:20px; cursor:pointer; display:none; }
+</style>
+</head>
+<body>
+
+<h1>指令系统 <span class="hl">专题</span></h1>
+<div class="sub">软考 · 计算机组成原理 ｜ 指令格式 → 地址码 → 寻址方式 → <b>CISC/RISC</b> → 指令流水线 → 真题实战 ｜ 机考模拟第 1 题考点</div>
+
+<div class="toc">
+  <b>目录</b>（<span class="ex">✎ = 含例题</span>）：
+  <a href="#s1">① 一条指令长什么样</a> ·
+  <a href="#s2">② 按地址码个数分类</a> ·
+  <a href="#s3">③ 寻址方式（重点）✎</a> ·
+  <a href="#s4">④ CISC vs RISC（本题考点）✎</a> ·
+  <a href="#s5">⑤ 指令流水线（概览·外链）</a> ·
+  <a href="#s6">⑥ 真题实战 ✎</a>
+</div>
+
+<!-- ==================== ① 指令长什么样 ==================== -->
+<h2 class="sec" id="s1">① 一条指令长什么样 <span class="en">instruction format</span></h2>
+<p>一条机器指令 = <b>操作码（OP）</b> + <b>地址码</b>。一个是"干什么"，一个是"对谁干"。</p>
+<div class="annot"><span class="m">操作码 OP</span>   ：干什么（加 / 减 / 传送 / 跳转 / 停机）
+<span class="e">地址码 A</span>    ：对谁干（操作数地址 / 结果地址 / 下条指令地址）
+
+例：  <span class="m">ADD</span>  <span class="e">R1, [1000H]</span>     → 把内存 1000H 的内容加进 R1
+      操作码       地址码</div>
+
+<table class="lt">
+<tr><th>概念</th><th>含义</th><th>考点</th></tr>
+<tr><td><b>操作码位数</b></td><td>决定能表示多少种操作</td><td>n 位操作码 → 最多 <b>2<sup>n</sup></b> 条指令</td></tr>
+<tr><td><b>指令字长</b></td><td>一条指令占的二进制位数</td><td>定长（简单、译码快）/ 变长（省空间）</td></tr>
+<tr><td><b>定长操作码</b></td><td>所有指令操作码位数相同</td><td>译码简单，但指令总数受限</td></tr>
+<tr><td><b>扩展操作码</b></td><td>常用指令用短码、不常用用长码</td><td>类似哈夫曼：短码省长度、长码扩展容量</td></tr>
+</table>
+<div class="key g">🔑 送分点：操作码 n 位 → <b>2<sup>n</sup> 条指令</b>。8 位操作码 = 最多 256 条指令。</div>
+
+<!-- ==================== ② 地址码个数 ==================== -->
+<h2 class="sec" id="s2">② 按"地址码个数"分类（三/二/一/零地址指令）</h2>
+<table class="lt">
+<tr><th>类型</th><th>形式</th><th>含义</th><th>例子</th></tr>
+<tr><td><b>三地址</b></td><td><code>a = b op c</code></td><td>两个操作数、一个结果，各占一地址</td><td><code>ADD R1,R2,R3</code></td></tr>
+<tr><td><b>二地址</b></td><td><code>a = a op b</code></td><td>结果覆盖其中一个操作数（最常见）</td><td><code>ADD R1,R2</code>（R1←R1+R2）</td></tr>
+<tr><td><b>一地址</b></td><td><code>ac = ac op x</code></td><td>另一个操作数隐含在<b>累加器 AC</b></td><td><code>ADD X</code>（AC←AC+X）</td></tr>
+<tr><td><b>零地址</b></td><td><code>op</code></td><td>无操作数，或操作数隐在<b>堆栈</b>顶</td><td><code>NOP</code> / <code>RET</code> / 栈运算</td></tr>
+</table>
+<div class="key o">💡 地址码越多 → 指令越长、结构越复杂；RISC 偏爱<b>少地址码 + 寄存器</b>。一地址指令靠 AC，零地址指令常配<b>堆栈</b>（如堆栈式计算机）。</div>
+
+<!-- ==================== ③ 寻址方式 ==================== -->
+<h2 class="sec" id="s3">③ 寻址方式（找操作数的方式 · 必考） <span class="en">addressing modes</span></h2>
+<p>核心就一句话：<b>指令里的"形式地址"，怎样变成操作数真正的地址（有效地址 EA）？</b></p>
+<table class="lt">
+<tr><th>寻址方式</th><th>有效地址 / 操作数位置</th><th>特点 / 用途</th></tr>
+<tr><td><b>立即寻址</b></td><td>操作数<b>就在指令里</b>（无 EA）</td><td>最快（不访存取操作数） / 但操作数固定不能改</td></tr>
+<tr><td><b>直接寻址</b></td><td><code>EA = A</code></td><td>形式地址就是有效地址 / 访存 1 次</td></tr>
+<tr><td><b>间接寻址</b></td><td><code>EA = (A)</code></td><td>A 单元里装的是 EA / 访存 ≥2 次，灵活但慢（一次间接）</td></tr>
+<tr><td><b>寄存器寻址</b></td><td>操作数在<b>寄存器</b>里</td><td>快（不访存） / 寄存器数量有限</td></tr>
+<tr><td><b>寄存器间接</b></td><td><code>EA = (R)</code></td><td>寄存器里装的是 EA / 比内存间接快</td></tr>
+<tr><td><b>变址寻址</b></td><td><code>EA = (IX) + A</code></td><td>变址寄存器内容 + 形式地址 / <b>适合数组、循环</b></td></tr>
+<tr><td><b>相对寻址</b></td><td><code>EA = (PC) + A</code></td><td>PC 内容 + 形式地址 / <b>适合转移指令、程序浮动</b></td></tr>
+<tr><td><b>基址寻址</b></td><td><code>EA = (BR) + A</code></td><td>基址寄存器 + 形式地址 / <b>适合多道程序重定位</b></td></tr>
+<tr><td><b>堆栈寻址</b></td><td><code>EA = (SP)</code></td><td>由栈指针给出 / 零地址指令常用</td></tr>
+</table>
+<div class="key r">⚠️ <b>变址 vs 基址（最爱混）：</b><br>
+· <b>变址寻址</b>：<b>变址寄存器内容可变</b>（循环里自增），形式地址不变 → 面向<b>数组下标</b>。<br>
+· <b>基址寻址</b>：<b>基址寄存器内容不变</b>（程序装入时定），形式地址变 → 面向<b>程序重定位</b>。<br>
+一句话：<b>变址——寄存器变、地址定；基址——寄存器定、地址变</b>。</div>
+<div class="key o">💡 执行速度排序（取操作数）：<b>立即 &gt; 寄存器 &gt; 直接 &gt; 间接</b>。访存次数：立即 0 次、直接 1 次、一次间接 2 次。</div>
+
+<div class="qbox">
+  <div class="q"><b>【例题 · 变址/相对 求 EA】</b>某机指令中的形式地址 A = <b>20H</b>。① 若采用<b>变址寻址</b>，变址寄存器内容 = <b>1000H</b>，则有效地址 EA = ? ② 若采用<b>相对寻址</b>，PC 当前值 = <b>2000H</b>，则 EA = ?</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    ① 变址：EA = (IX) + A = 1000H + 20H = <b>1020H</b><br>
+    ② 相对：EA = (PC) + A = 2000H + 20H = <b>2020H</b><br>
+    🔑 两式长得像，区别只在"加的是谁"：<b>变址加变址寄存器、相对加 PC、基址加基址寄存器</b>。
+  </div></details>
+</div>
+<div class="qbox">
+  <div class="q"><b>【例题 · 寻址方式辨速度】</b>下列寻址方式中，获取操作数<b>速度最快</b>的是（　　）<br>
+  A. 直接寻址　　B. 间接寻址　　C. 立即寻址　　D. 寄存器间接寻址</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>C</b>。立即寻址的操作数<b>直接写在指令里</b>，取指时一并拿到，<b>不需要再访存</b>，所以最快。<br>
+    ❌ 直接寻址要访存 1 次取操作数；❌ 间接/寄存器间接还要多绕一层。<br>
+    🔑 排序记牢：<b>立即（0 次访存）&gt; 寄存器（不访存）&gt; 直接（1 次）&gt; 间接（≥2 次）</b>。
+  </div></details>
+</div>
+
+<!-- ==================== ④ CISC vs RISC ==================== -->
+<h2 class="sec" id="s4">④ CISC vs RISC（机考模拟第 1 题就是它） <span class="en">complex / reduced instruction set</span></h2>
+<p><b>根源</b>：早期一味堆指令（CISC），后来发现复杂指令很少用、还拖慢速度 → 反其道而行，只留<b>简单高频</b>指令 + 流水线 + 好编译器（RISC）。</p>
+
+<div class="vs">
+  <div class="col cisc">
+    <h3>CISC 复杂指令集</h3>
+    <ul>
+      <li>指令<b>数量多</b>（100~250 条）</li>
+      <li>指令功能强、复杂</li>
+      <li>指令长度<b>可变</b>、格式多样</li>
+      <li>寻址方式多</li>
+      <li><b>任意指令都能访存</b></li>
+      <li>控制器以<b>微程序控制</b>为主</li>
+      <li>通用寄存器相对<b>少</b></li>
+      <li>代表：<b>Intel x86、VAX</b></li>
+    </ul>
+  </div>
+  <div class="col risc">
+    <h3>RISC 精简指令集</h3>
+    <ul>
+      <li>指令<b>数量少</b>（&lt; 100 条）</li>
+      <li>指令功能简单、规整</li>
+      <li>指令长度<b>固定</b>、格式少</li>
+      <li>寻址方式少</li>
+      <li><b>只有 load/store 访存</b></li>
+      <li>控制器以<b>硬布线（组合逻辑）</b>为主</li>
+      <li>通用寄存器<b>大量</b></li>
+      <li>代表：<b>ARM、MIPS、RISC-V</b></li>
+    </ul>
+  </div>
+</div>
+
+<table class="lt">
+<tr><th>对比项</th><th>CISC</th><th>RISC</th></tr>
+<tr class="hl"><td>指令数量 / 复杂度</td><td><b>多、功能强</b></td><td><b>少、简单</b></td></tr>
+<tr><td>指令长度</td><td>可变、格式多样</td><td>定长、格式少</td></tr>
+<tr><td>寻址方式</td><td>多、复杂</td><td>少、简单</td></tr>
+<tr><td>访存限制</td><td>任意指令可访存</td><td><b>只有 load/store 访存</b></td></tr>
+<tr><td>控制器</td><td><b>微程序控制</b></td><td><b>硬布线控制</b></td></tr>
+<tr><td>通用寄存器数</td><td>相对少</td><td><b>大量</b></td></tr>
+<tr><td>执行周期</td><td>长短不一、难流水线化</td><td>大多一个周期、<b>适合流水线</b></td></tr>
+<tr><td>编译优化</td><td>难生成高效代码</td><td><b>易被编译器优化</b></td></tr>
+<tr><td>典型代表</td><td>Intel x86、VAX</td><td>ARM、MIPS、RISC-V</td></tr>
+</table>
+
+<div class="key r">⚠️ <b>三个最爱考的坑：</b><br>
+1. <b>"指令种类多、功能强" = CISC</b>，别扣给 RISC（机考第 1 题 B 就错在这）。<br>
+2. <b>"大量通用寄存器" = RISC</b>（运算在寄存器间进行，所以寄存器多）。<br>
+3. <b>控制器</b>：CISC 用<b>微程序</b>、RISC 用<b>硬布线</b>——这对立常单独出单选。</div>
+<div class="key g">🔑 一句话口诀：<br>
+<b>RISC</b> = 少（指令少）、定（定长）、简（寻址少）、多（寄存器多）、硬（硬布线）、流（善流水线）；<br>
+<b>CISC</b> = 多、变、杂、微（微程序）、少寄存器。</div>
+
+<div class="qbox" style="border-color:#3fb95088;background:#3fb9500d">
+  <div class="q"><b>【真题原文 · 机考模拟第 1 题】</b>以下关于 RISC（精简指令集计算机）特点的叙述中，错误的是（　　）<br>
+  A. 对存储器操作进行限制，使控制简单化　　B. 指令种类多，指令功能强<br>
+  C. 设置大量通用寄存器　　D. 选取使用频率较高的一些指令，提高执行速度</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>B（"指令种类多、功能强"是 CISC 的特点）</b>。<br>
+    ✅ A：RISC 只有 <b>load/store</b> 访问存储器，访存受限 → 控制简单<br>
+    ❌ B：RISC 是"<b>指令种类少、功能简单</b>"，说"多、强"是 CISC<br>
+    ✅ C：RISC 运算在寄存器间进行 → 需要<b>大量通用寄存器</b><br>
+    ✅ D：RISC 只保留<b>高频指令</b>（砍掉低频复杂指令），提高执行速度<br>
+    🔑 诀窍：看到"指令多、功能强"就往 CISC 想，那正是 RISC 的反面。
+  </div></details>
+</div>
+<div class="qbox">
+  <div class="q"><b>【真题风格 · 反向问 CISC】</b>以下关于 CISC（复杂指令集计算机）的叙述中，错误的是（　　）<br>
+  A. 指令数量多，使用频率相差悬殊　　B. 指令长度可变，寻址方式多<br>
+  C. 控制器以硬布线控制为主　　D. 各种指令都可访问存储器</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>C</b>。硬布线（组合逻辑）是 <b>RISC</b> 的，<b>CISC 用微程序控制</b>。<br>
+    ✅ A：CISC 指令多，且"20% 指令占 80% 使用率"（帕累托）<br>
+    ✅ B：CISC 指令<b>变长、寻址多</b>（RISC 才定长、寻址少）<br>
+    ✅ D：CISC <b>任意指令都能访存</b>（RISC 只有 load/store）<br>
+    🔑 控制器归属是高频考点：<b>CISC→微程序，RISC→硬布线</b>。
+  </div></details>
+</div>
+
+<!-- ==================== ⑤ 指令流水线 ==================== -->
+<h2 class="sec" id="s5">⑤ 指令流水线（概览 · 详细见动画） <span class="en">instruction pipeline</span></h2>
+<p>流水线是把"取指→译码→执行→写回"这几步<b>像装配线一样重叠</b>起来，让多条指令同时处于不同阶段，从而提速。RISC 指令规整，天生适合流水线。</p>
+<div class="annot">核心公式：
+  执行 n 条指令、k 段流水线  →  总时间 = <span class="g">(k + n − 1) × Δt</span>
+  吞吐率 TP = n / 总时间       建立时间 = k × Δt
+  加速比 S = 串行时间 / 流水线时间      效率 E = 时空图有效面积 / 总面积</div>
+<div class="key">🔑 详细动画与"加速比 / 效率 / 超标量 / 三类相关 / 流水线真题"请看：
+<a href="流水线动画.html" style="color:#79c0ff">🎞 流水线动画（时空图 + 执行时间 + 吞吐率）</a> —— 本篇不重复。</div>
+
+<!-- ==================== ⑥ 真题实战 ==================== -->
+<h2 class="sec" id="s6">⑥ 真题实战（先选，再点开） <span class="en">practice</span></h2>
+
+<div class="qbox">
+  <div class="q"><b>题1（操作码位数）：</b>某计算机指令的操作码固定为 <b>6 位</b>，则该计算机最多可有（　　）种操作。<br>
+  A. 6　　B. 36　　C. 64　　D. 128</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>C</b>。n 位操作码 → 2<sup>n</sup> 种 = 2<sup>6</sup> = <b>64</b> 种。<br>
+    🔑 记住"<b>几位操作码就是 2 的几次方</b>"，别拿位数直接当选。
+  </div></details>
+</div>
+
+<div class="qbox">
+  <div class="q"><b>题2（扩展操作码 · 经典）：</b>某机指令字长 <b>16 位</b>，每个地址码 <b>4 位</b>，采用<b>扩展操作码</b>。若三地址指令有 <b>15 条</b>，则二地址指令最多有（　　）条。<br>
+  A. 14　　B. 15　　C. 16　　D. 32</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>C（16 条）</b>。三步走：<br>
+    ① 三地址指令占 3×4 = 12 位地址码，剩 <b>4 位</b>给操作码 → 共 2<sup>4</sup> = 16 种编码<br>
+    ② 三地址用掉 15 种，<b>剩 1 种</b>留作扩展<br>
+    ③ 二地址少一个地址码，多出的 4 位并进操作码 → 那 1 种 × 2<sup>4</sup> = <b>16 条</b>二地址指令<br>
+    🔑 扩展操作码的算法：<b>剩余编码数 × 2<sup>新释放的地址位数</sup></b>。短码给常用指令，长码给更多指令。
+  </div></details>
+</div>
+
+<div class="qbox">
+  <div class="q"><b>题3（寻址方式）：</b>指令中的形式地址为 A，操作数存放在由 A 指示的内存单元所<b>指向</b>的单元中，这种寻址方式是（　　）<br>
+  A. 立即寻址　　B. 直接寻址　　C. 间接寻址　　D. 寄存器寻址</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>C. 间接寻址</b>。EA = (A)——<b>A 单元里装的是"操作数的地址"</b>，要再访存一次才拿到操作数。<br>
+    ❌ A 立即：操作数就在指令里；❌ B 直接：EA=A，A 就是操作数地址（不绕第二层）；❌ D 寄存器：操作数在寄存器里。<br>
+    🔑 "指向……的单元"= 多绕一层 = 间接。
+  </div></details>
+</div>
+
+<div class="qbox">
+  <div class="q"><b>题4（CISC/RISC 综合）：</b>下列叙述中，<b>不属于</b> RISC 特点的是（　　）<br>
+  A. 指令长度固定，格式少，寻址方式少<br>
+  B. 只有 load/store 指令访问存储器<br>
+  C. 控制器采用微程序控制，指令功能强<br>
+  D. 设置大量通用寄存器，采用流水线技术</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>C</b>。RISC 用<b>硬布线控制</b>、指令功能简单；"微程序控制 + 功能强"是 <b>CISC</b>。<br>
+    ✅ A、B、D 全是 RISC 的正解特点。<br>
+    🔑 这题几乎把 CISC/RISC 对立点考全了，会这题，同类全通。
+  </div></details>
+</div>
+
+<div class="qbox">
+  <div class="q"><b>题5（一地址/零地址）：</b>下列指令中，通常属于<b>零地址指令</b>的是（　　）<br>
+  A. ADD R1, R2　　B. PUSH　　C. MOV R1, #5　　D. JMP 2000H</div>
+  <details><summary>点击看答案</summary><div class="ans">
+    <b>B. PUSH</b>。零地址指令无显式操作数，操作数<b>隐含在堆栈</b>（由 SP 给出），PUSH/POP 是典型。<br>
+    ❌ A 二地址、❌ C 含立即数、❌ D 含转移地址，都不是零地址。<br>
+    🔑 零地址 = <b>操作数隐在堆栈，靠 SP 定位</b>。
+  </div></details>
+</div>
+
+<table class="lt">
+<tr><th>考点</th><th>典型题干</th><th>例题位置</th></tr>
+<tr class="hl"><td>CISC vs RISC</td><td>"以下关于 RISC 特点错误的是"</td><td>④ 两道（真题原文 + 反向）</td></tr>
+<tr><td>操作码/指令数</td><td>n 位操作码 → 多少种操作</td><td>⑥ 题1</td></tr>
+<tr><td>扩展操作码</td><td>字长/地址码位数 → 二地址最多几条</td><td>⑥ 题2</td></tr>
+<tr><td>寻址方式判定</td><td>"操作数在……所指单元中"</td><td>③ 两道 · ⑥ 题3</td></tr>
+<tr><td>有效地址计算</td><td>变址/相对/基址 求 EA</td><td>③ 例题</td></tr>
+<tr><td>地址码个数分类</td><td>三/二/一/零地址识别</td><td>② · ⑥ 题5</td></tr>
+</table>
+<div class="key g">🔑 结论：指令系统这块<b>上午必考 1~2 分</b>。核心就三样——<b>操作码位数算指令数、寻址方式辨 EA、CISC/RISC 对立点</b>。全吃透即可。</div>
+
+<div class="memo" style="margin-bottom:40px">
+  <b>本专题总收</b>：<br>
+  ① 指令 = <b>操作码 + 地址码</b>；n 位操作码 → 2<sup>n</sup> 条指令；<br>
+  ② 按地址码个数分：三 / 二 / 一（隐含 AC）/ 零（隐含堆栈）；<br>
+  ③ 寻址方式：立即(0次访存)、直接(EA=A)、间接(EA=(A))、寄存器、变址(EA=(IX)+A,数组)、相对(EA=(PC)+A,转移)、基址(EA=(BR)+A,重定位)；<b>速度快慢：立即&gt;寄存器&gt;直接&gt;间接</b>；<br>
+  ④ <b>CISC</b>：多、变、杂、微程序、少寄存器；<b>RISC</b>：少、定、简、多寄存器、硬布线、只有 load/store 访存、善流水线；<br>
+  ⑤ 流水线：总时间 =(k+n−1)×Δt，详见流水线动画。
+</div>
+
+<button class="backtop" id="backtop" onclick="scrollTo({top:0,behavior:'smooth'})">↑</button>
+<script>
+  window.addEventListener('scroll', function(){
+    document.getElementById('backtop').style.display = (window.scrollY>400) ? 'block' : 'none';
+  });
+</script>
+</body>
+</html>
